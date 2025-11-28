@@ -10,7 +10,7 @@ from pathlib import Path
 try:
     from .main import process_photos_backend, process_excel_to_kmz_backend
     from .exceptions import (
-        Fotos2KMZError,
+        GeoSnapError,
         InputFolderMissingError,
         NoImagesFoundError,
         NoGPSDataError,

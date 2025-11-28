@@ -12,7 +12,7 @@ from .exceptions import (InputFolderMissingError, NoImagesFoundError,
                         NoGPSDataError, ProcessCancelledError)
 
 # Configurar logger
-log_dir = Path.home() / '.fotos2kmz_logs'
+log_dir = Path.home() / '.geosnap_logs'
 log_dir.mkdir(exist_ok=True)
 log_file = log_dir / 'app.log'
 

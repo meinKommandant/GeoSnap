@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 
 # Guardamos la configuración en la carpeta de usuario para que sea persistente
-# Windows: C:\Users\TuUsuario\.fotos2kmz_settings.json
-CONFIG_FILE = Path.home() / ".fotos2kmz_settings.json"
+# Windows: C:\Users\TuUsuario\.geosnap_settings.json
+CONFIG_FILE = Path.home() / ".geosnap_settings.json"
 
 DEFAULT_CONFIG = {
     "input_dir": "",

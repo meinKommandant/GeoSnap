@@ -1,8 +1,8 @@
-# 📸 Fotos2KMZ: Generador de Reportes Geo-Referenciados
+# 📸 GeoSnap: Generador de Reportes Geo-Referenciados
 
 > **Convierte tus fotos geoetiquetadas en reportes visuales (KMZ) y tabulados (Excel) en segundos.**
 
-**Fotos2KMZ** es una aplicación de escritorio desarrollada en Python que procesa lotes de imágenes, extrae sus metadatos GPS y genera automáticamente archivos compatibles con Google Earth y hojas de cálculo detalladas.
+**GeoSnap** es una aplicación de escritorio desarrollada en Python que procesa lotes de imágenes, extrae sus metadatos GPS y genera automáticamente archivos compatibles con Google Earth y hojas de cálculo detalladas.
 
 ---
 
@@ -28,7 +28,7 @@
 1.  **Clonar o descargar el repositorio**:
     ```bash
     git clone <url-del-repo>
-    cd fotos2kmz
+    cd geosnap
     ```
 
 2.  **Crear y activar un entorno virtual**:
@@ -56,4 +56,4 @@
 Para abrir la interfaz gráfica:
 
 ```bash
-py src/gui.py
+py src/run.py

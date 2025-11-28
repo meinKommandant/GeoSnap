@@ -7,8 +7,8 @@ from datetime import datetime
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from fotos2kmz.generators import ExcelReportGenerator
-from fotos2kmz.models import PhotoMetadata, GPSCoordinates
+from geosnap.generators import ExcelReportGenerator
+from geosnap.models import PhotoMetadata, GPSCoordinates
 
 class TestExcelReportGenerator:
     def test_create_workbook(self):

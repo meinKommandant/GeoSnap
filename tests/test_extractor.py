@@ -7,15 +7,15 @@ import os
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from fotos2kmz.extractor import GPSPhotoExtractor
-from fotos2kmz.models import PhotoMetadata
+from geosnap.extractor import GPSPhotoExtractor
+from geosnap.models import PhotoMetadata
 
 class TestGPSPhotoExtractor:
     @pytest.fixture
     def extractor(self):
         return GPSPhotoExtractor()
 
-    @patch('extractor.Image.open')
+    @patch('geosnap.extractor.Image.open')
     def test_extract_metadata_with_valid_gps(self, mock_open, extractor):
         # Mock image and EXIF data
         mock_img = MagicMock()
@@ -44,7 +44,7 @@ class TestGPSPhotoExtractor:
         assert metadata.coordinates.longitude == -3.0 # West is negative
         assert metadata.coordinates.altitude == 100.0
 
-    @patch('extractor.Image.open')
+    @patch('geosnap.extractor.Image.open')
     def test_extract_metadata_no_gps(self, mock_open, extractor):
         mock_img = MagicMock()
         mock_open.return_value = mock_img
@@ -60,7 +60,7 @@ class TestGPSPhotoExtractor:
         assert metadata.has_gps is False
         assert metadata.coordinates is None
 
-    @patch('extractor.Image.open')
+    @patch('geosnap.extractor.Image.open')
     def test_extract_metadata_zero_coordinates(self, mock_open, extractor):
         # Test for the safety check we added
         mock_img = MagicMock()
