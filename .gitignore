@@ -1,0 +1,36 @@
+# --- IDE y Entornos Virtuales (PyCharm / VSCode) ---
+.idea/
+.vscode/
+venv/
+env/
+.env
+
+# --- Python Core (Archivos compilados y caché) ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Archivos de Sistema (Mac / Windows) ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# --- PyInstaller (Carpetas de compilación y ejecutables) ---
+# Ignoramos las carpetas pesadas que genera PyInstaller
+build/
+dist/
+# Mantenemos el archivo .spec para versionar la configuración del build
+# (Si prefieres no subirlo, descomenta la siguiente línea):
+# *.spec
+
+# --- Proyecto: Salidas ---
+# Ignoramos los reportes generados (Excel, KMZ y miniaturas)
+output/
+
+# --- Proyecto: Entradas ---
+# Ignoramos TODAS las fotos dentro de input (para no saturar GitHub)
+input/*
+
+# EXCEPCIÓN: Mantenemos este archivo para que Git suba la carpeta 'input' vacía
+!input/.gitkeep

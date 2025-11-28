@@ -1,0 +1,11 @@
+# Manejo de imágenes y metadatos EXIF
+Pillow
+pillow-heif
+# Generación de archivos KMZ/KML para Google Earth
+simplekml
+
+# Generación y estilos de Excel
+openpyxl
+
+# GUI Moderna
+ttkbootstrap
