@@ -1,59 +1,69 @@
-# 📸 GeoSnap: Generador de Reportes Geo-Referenciados
+# 📸 GeoSnap
 
-> **Convierte tus fotos geoetiquetadas en reportes visuales (KMZ) y tabulados (Excel) en segundos.**
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
+![Platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey.svg)
 
-**GeoSnap** es una aplicación de escritorio desarrollada en Python que procesa lotes de imágenes, extrae sus metadatos GPS y genera automáticamente archivos compatibles con Google Earth y hojas de cálculo detalladas.
+**GeoSnap** is a powerful desktop tool that transforms your geotagged photos into professional KMZ reports for Google Earth and detailed Excel spreadsheets.
 
----
-
-## 🚀 Características Principales
-
-* **🗺️ Generación de KMZ "Portátil":** Crea archivos `.kmz` con las miniaturas de las fotos **incrustadas**. Esto permite enviar el archivo por correo y visualizar las fotos en el mapa sin necesidad de adjuntar las imágenes originales.
-* **📊 Reportes en Excel:** Genera una hoja de cálculo (`.xlsx`) con formato profesional, incluyendo bordes y encabezados, lista para entregar.
-* **🖥️ Interfaz Gráfica (GUI):** Fácil de usar, sin necesidad de tocar código. Selecciona carpetas y procesa.
-* **⚡ Procesamiento Paralelo:** Utiliza *hilos* (threading) para leer y extraer metadatos de múltiples imágenes simultáneamente, mejorando la velocidad.
-* **🔄 Auto-Rotación:** Detecta la orientación EXIF para asegurar que las fotos verticales se muestren correctamente.
-* **🧹 Utilidades de Limpieza:** Incluye scripts para limpiar archivos temporales y compilaciones previas.
+> **Turn your field photos into actionable geographic data in seconds.**
 
 ---
 
-## 🛠️ Requisitos e Instalación
+## ✨ Key Features
 
-### Prerrequisitos
-* Python 3.8 o superior.
-* Entorno virtual (recomendado).
+*   **🗺️ Portable KMZ Generation**: Creates `.kmz` files with embedded thumbnails. Share your reports easily via email without worrying about broken image links.
+*   **📊 Excel Reporting**: Automatically generates formatted Excel (`.xlsx`) reports with GPS coordinates, timestamps, and altitude data.
+*   **⚡ High Performance**: Multi-threaded processing ensures fast extraction of metadata from hundreds of images.
+*   **🔄 Smart Orientation**: Automatically corrects image rotation based on EXIF data.
+*   **🖥️ User-Friendly GUI**: Simple, intuitive interface for selecting folders and generating reports.
 
-### Instalación para Desarrollo
+## 🚀 Installation
 
-1.  **Clonar o descargar el repositorio**:
+### Prerequisites
+*   Python 3.8 or higher
+*   pip (Python package installer)
+
+### Setup
+
+1.  **Clone the repository:**
     ```bash
-    git clone <url-del-repo>
+    git clone https://github.com/yourusername/geosnap.git
     cd geosnap
     ```
 
-2.  **Crear y activar un entorno virtual**:
-    * *Windows*:
+2.  **Create a virtual environment (Recommended):**
+    *   Windows:
         ```bash
         py -m venv venv
         .\venv\Scripts\activate
         ```
-    * *macOS/Linux*:
+    *   macOS/Linux:
         ```bash
         python3 -m venv venv
         source venv/bin/activate
         ```
 
-3.  **Instalar dependencias**:
+3.  **Install dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
----
+## 📖 Usage
 
-##  ▶️ Cómo Ejecutar
+1.  **Launch the application:**
+    ```bash
+    py src/run.py
+    ```
 
-### Opción 1: Desde Código Fuente
-Para abrir la interfaz gráfica:
+2.  **Select Input Folder:** Choose the directory containing your geotagged photos (JPG, HEIC, PNG).
+3.  **Select Output Folder:** Choose where you want the report files to be saved.
+4.  **Generate:** Click "Procesar" to generate your KMZ and Excel files.
 
-```bash
-py src/run.py
+## 🤝 Contributing
+
+Contributions are welcome! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

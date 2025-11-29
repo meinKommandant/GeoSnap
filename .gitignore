@@ -15,22 +15,20 @@ __pycache__/
 .DS_Store
 Thumbs.db
 ehthumbs.db
+Desktop.ini
 
 # --- PyInstaller (Carpetas de compilación y ejecutables) ---
-# Ignoramos las carpetas pesadas que genera PyInstaller
 build/
 dist/
 # Mantenemos el archivo .spec para versionar la configuración del build
-# (Si prefieres no subirlo, descomenta la siguiente línea):
 # *.spec
 
 # --- Proyecto: Salidas ---
-# Ignoramos los reportes generados (Excel, KMZ y miniaturas)
 output/
+*.log
+.geosnap_logs/
 
 # --- Proyecto: Entradas ---
 # Ignoramos TODAS las fotos dentro de input (para no saturar GitHub)
 input/*
-
-# EXCEPCIÓN: Mantenemos este archivo para que Git suba la carpeta 'input' vacía
 !input/.gitkeep
