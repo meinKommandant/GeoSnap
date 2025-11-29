@@ -1,11 +1,15 @@
 # Manejo de imágenes y metadatos EXIF
-Pillow
-pillow-heif
+Pillow==12.0.0
+pillow-heif==1.1.1
+
 # Generación de archivos KMZ/KML para Google Earth
-simplekml
+simplekml==1.3.6
 
 # Generación y estilos de Excel
-openpyxl
+openpyxl==3.1.5
 
 # GUI Moderna
-ttkbootstrap
+ttkbootstrap==1.19.0
+
+# --- Dev Dependencies ---
+pytest==9.0.1
