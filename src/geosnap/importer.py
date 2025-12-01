@@ -25,6 +25,7 @@ class ExcelImporter:
         "latitud": ["latitud", "lat", "latitude"],
         "longitud": ["longitud", "lon", "long", "lng", "longitude"],
         "altitud": ["altitud", "alt", "altitude", "elevacion"],
+        "azimut": ["rumbo", "azimut", "azimuth", "bearing", "direccion"],
     }
 
     def parse_excel(self, excel_path: Path | str) -> List[PhotoMetadata]:
@@ -102,7 +103,14 @@ class ExcelImporter:
             raw_num = _val("num")
             sequence_id = str(raw_num).strip() if raw_num is not None else None
 
-            coords = GPSCoordinates(latitude=lat, longitude=lon, altitude=altitude)
+            # Azimut (opcional)
+            az_val = _val("azimut")
+            try:
+                azimuth = self._to_float(az_val) if az_val not in (None, "") else None
+            except ValueError:
+                azimuth = None
+
+            coords = GPSCoordinates(latitude=lat, longitude=lon, altitude=altitude, azimuth=azimuth)
             results.append(
                 PhotoMetadata(
                     filename=filename,

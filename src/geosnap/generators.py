@@ -1,4 +1,5 @@
 import openpyxl
+import math
 from openpyxl.styles import Font, Border, Side
 import simplekml
 from pathlib import Path
@@ -20,7 +21,7 @@ class ExcelReportGenerator:
 
     def _setup_headers(self):
         headers = {"B1": "Nº", "C1": "Archivo", "D1": "DESCRIPCIÓN",
-                   "E1": "Fecha", "F1": "Latitud", "G1": "Longitud", "H1": "Altitud [m]"}
+                   "E1": "Fecha", "F1": "Latitud", "G1": "Longitud", "H1": "Altitud [m]", "I1": "Rumbo [°]"}
         
         for cell_coord, text in headers.items():
             cell = self.ws[cell_coord]
@@ -29,7 +30,7 @@ class ExcelReportGenerator:
             cell.border = self.thin_border
 
         # Anchos de columna
-        dims = {'A': 3, 'B': 8, 'C': 30, 'D': 50, 'E': 22, 'F': 15, 'G': 15, 'H': 12}
+        dims = {'A': 3, 'B': 8, 'C': 30, 'D': 50, 'E': 22, 'F': 15, 'G': 15, 'H': 12, 'I': 10}
         for col, width in dims.items():
             self.ws.column_dimensions[col].width = width
 
@@ -41,7 +42,8 @@ class ExcelReportGenerator:
             (5, str(metadata.timestamp)), 
             (6, metadata.coordinates.latitude),
             (7, metadata.coordinates.longitude), 
-            (8, altitude_val)
+            (8, altitude_val),
+            (9, metadata.coordinates.azimuth if metadata.coordinates.azimuth is not None else "")
         ]
         for col_idx, val in cells:
             c = self.ws.cell(row=row_idx, column=col_idx, value=val)
@@ -67,8 +69,41 @@ class KmzReportGenerator:
         display_id = metadata.sequence_id if metadata.sequence_id else f"{numero_orden} (Auto)"
         titulo_punto = f"Foto Nº {display_id}"
         
-        pnt = self.kml.newpoint(name=titulo_punto)
-        pnt.coords = [(metadata.coordinates.longitude, metadata.coordinates.latitude)]
+        # Lógica de Flecha (Azimut)
+        if metadata.coordinates.azimuth is not None:
+            # Crear Placemark con MultiGeometry
+            pnt = self.kml.newmultigeometry(name=titulo_punto)
+            
+            # 1. Punto Original (Cámara)
+            # Al llamar newpoint sobre un MultiGeometry, se añade el punto a la colección
+            pnt.newpoint(coords=[(metadata.coordinates.longitude, metadata.coordinates.latitude)])
+            
+            # 2. Flecha Amarilla
+            lat = metadata.coordinates.latitude
+            lon = metadata.coordinates.longitude
+            az = metadata.coordinates.azimuth
+            
+            # Calcular puntos
+            end_lat, end_lon = self._calculate_dest_point(lat, lon, 30, az)
+            w1_lat, w1_lon = self._calculate_dest_point(end_lat, end_lon, 8, az + 150)
+            w2_lat, w2_lon = self._calculate_dest_point(end_lat, end_lon, 8, az - 150)
+            
+            # Dibujar línea: Inicio -> Fin -> Ala1 -> Fin -> Ala2
+            arrow_coords = [
+                (lon, lat),
+                (end_lon, end_lat),
+                (w1_lon, w1_lat),
+                (end_lon, end_lat),
+                (w2_lon, w2_lat)
+            ]
+            
+            ls = pnt.newlinestring(coords=arrow_coords)
+            ls.style.linestyle.color = simplekml.Color.yellow
+            ls.style.linestyle.width = 4
+        else:
+            # Crear Placemark con Point
+            pnt = self.kml.newpoint(name=titulo_punto)
+            pnt.coords = [(metadata.coordinates.longitude, metadata.coordinates.latitude)]
 
         # Estilo del icono (Cámara roja)
         # http://maps.google.com/mapfiles/kml/pal4/icon46.png es una cámara
@@ -103,6 +138,7 @@ class KmzReportGenerator:
             <tr><td><b>Latitud</b></td><td>{metadata.coordinates.latitude}</td></tr>
             <tr><td><b>Longitud</b></td><td>{metadata.coordinates.longitude}</td></tr>
             <tr><td><b>Altitud [m]</b></td><td>{altitude_val}</td></tr>
+            <tr><td><b>Rumbo [°]</b></td><td>{metadata.coordinates.azimuth if metadata.coordinates.azimuth is not None else ""}</td></tr>
         </table>
         """
 
@@ -117,3 +153,17 @@ class KmzReportGenerator:
     def cleanup(self):
         if self.thumbs_dir.exists():
             shutil.rmtree(self.thumbs_dir)
+
+    def _calculate_dest_point(self, lat, lon, dist_m, bearing_deg):
+        """Calcula punto destino dado un punto origen, distancia (m) y rumbo (grados)."""
+        R = 6378137  # Radio Tierra en metros
+        brng = math.radians(bearing_deg)
+        lat1 = math.radians(lat)
+        lon1 = math.radians(lon)
+
+        lat2 = math.asin(math.sin(lat1) * math.cos(dist_m / R) +
+                         math.cos(lat1) * math.sin(dist_m / R) * math.cos(brng))
+        lon2 = lon1 + math.atan2(math.sin(brng) * math.sin(dist_m / R) * math.cos(lat1),
+                                 math.cos(dist_m / R) - math.sin(lat1) * math.sin(lat2))
+        
+        return math.degrees(lat2), math.degrees(lon2)

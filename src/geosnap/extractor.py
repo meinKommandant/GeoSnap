@@ -5,6 +5,15 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, Tuple
 
+# Intentar importar librería de corrección magnética
+try:
+    import geomag
+except ImportError:
+    try:
+        import pygeomag as geomag
+    except ImportError:
+        geomag = None
+
 # Register HEIF opener
 pillow_heif.register_heif_opener()
 
@@ -43,7 +52,7 @@ class GPSPhotoExtractor:
             gps_coords = None
             if gps_info:
                 try:
-                    gps_coords = self._get_lat_lon(gps_info)
+                    gps_coords = self._get_lat_lon(gps_info, timestamp)
                     # Validar coordenadas 0.0, 0.0 (error de señal GPS)
                     if gps_coords and gps_coords.latitude == 0.0 and gps_coords.longitude == 0.0:
                         logger.warning(f"GPS coordinates are (0.0, 0.0) for {file_path.name}. Treating as no GPS.")
@@ -75,7 +84,7 @@ class GPSPhotoExtractor:
                 return None
         return None
 
-    def _get_lat_lon(self, gps_info: Dict[int, Any]) -> Optional[GPSCoordinates]:
+    def _get_lat_lon(self, gps_info: Dict[int, Any], timestamp: Optional[datetime] = None) -> Optional[GPSCoordinates]:
         # Mapeo de tags GPS usando ExifTags.GPSTAGS si fuera necesario, 
         # pero los IDs son estándar: 1=LatRef, 2=Lat, 3=LonRef, 4=Lon, 6=Alt
         
@@ -103,7 +112,44 @@ class GPSPhotoExtractor:
                 except (ValueError, TypeError):
                     alt = 0.0
 
-                return GPSCoordinates(lat, lon, alt)
+                # --- Lógica de Azimut (Rumbo) ---
+                azimuth = None
+                # Tag 17: GPSImgDirection, Tag 16: GPSImgDirectionRef
+                if 17 in gps_info:
+                    try:
+                        raw_az = gps_info[17]
+                        # Convertir a float si es tuple (num, den) o ifRational
+                        if isinstance(raw_az, tuple):
+                            val_az = float(raw_az[0]) / float(raw_az[1])
+                        else:
+                            val_az = float(raw_az)
+                        
+                        azimuth = val_az
+
+                        # Corrección Magnética
+                        # Ref 'M' = Magnetic North, 'T' = True North
+                        ref = gps_info.get(16, 'T')
+                        if isinstance(ref, str):
+                            ref = ref.upper()
+                        
+                        if ref == 'M' and geomag and timestamp:
+                            try:
+                                # Calcular declinación
+                                # geomag.declination(lat, lon, alt=0, date=date)
+                                # Nota: geomag/pygeomag pueden variar en firma, asumimos estilo pygeomag/wmm
+                                # Si falla, usamos el raw.
+                                dec = geomag.declination(lat, lon, 0, timestamp.date())
+                                azimuth += dec
+                                # Normalizar a 0-360
+                                azimuth = azimuth % 360.0
+                                logger.info(f"Corregido rumbo magnético: {val_az:.2f} -> {azimuth:.2f} (Dec: {dec:.2f})")
+                            except Exception as e:
+                                logger.warning(f"Error calculando declinación magnética: {e}")
+                        
+                    except Exception as e:
+                        logger.warning(f"Error procesando azimut: {e}")
+
+                return GPSCoordinates(lat, lon, alt, azimuth)
         return None
 
     def _to_decimal(self, dms_tuple: Tuple[Any, Any, Any], ref: str) -> Optional[float]:

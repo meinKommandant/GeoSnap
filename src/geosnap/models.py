@@ -8,6 +8,7 @@ class GPSCoordinates:
     latitude: float
     longitude: float
     altitude: Optional[float] = 0.0
+    azimuth: Optional[float] = None
 
     def __str__(self):
         return f"{self.latitude}, {self.longitude}"
