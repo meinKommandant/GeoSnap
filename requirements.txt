@@ -13,3 +13,6 @@ ttkbootstrap==1.19.0
 
 # --- Dev Dependencies ---
 pytest==9.0.1
+
+# --- Optional Dependencies ---
+geomag==0.9.2015
