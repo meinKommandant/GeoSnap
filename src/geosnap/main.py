@@ -1,15 +1,20 @@
 # src/main.py
 import logging
+from PIL import UnidentifiedImageError
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Callable, Optional
+from threading import Event
 
 # --- IMPORTACIONES NUEVAS ---
 from .extractor import GPSPhotoExtractor
+from .models import GPSCoordinates
 from .generators import ExcelReportGenerator, KmzReportGenerator
 from .importer import ExcelImporter
 from .exceptions import (InputFolderMissingError, NoImagesFoundError,
                         NoGPSDataError, ProcessCancelledError)
+from .constants import IMAGE_EXTENSIONS, IMAGE_EXTENSIONS_SET
 
 # Configurar logger
 log_dir = Path.home() / '.geosnap_logs'
@@ -27,7 +32,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def process_photos_backend(input_path_str, output_path_str, project_name_str, progress_callback=None, stop_event=None):
+def process_photos_backend(
+    input_path_str: str,
+    output_path_str: str,
+    project_name_str: str,
+    progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    stop_event: Optional[Event] = None,
+    include_no_gps: bool = False
+) -> str:
     """
     Backend robusto que lanza excepciones controladas en caso de error.
     """
@@ -47,10 +59,7 @@ def process_photos_backend(input_path_str, output_path_str, project_name_str, pr
     base_name = base_name.replace(".kmz", "").replace(".xlsx", "")
     # 3. OBTENER IMÁGENES
     # Definición de extensiones soportadas (incluye HEIC/HEIF)
-    extensions = [
-        '*.jpg', '*.jpeg', '*.JPG', '*.JPEG', '*.png',
-        '*.heic', '*.HEIC', '*.heif', '*.HEIF'
-    ]
+    extensions = IMAGE_EXTENSIONS
     # Búsqueda de archivos
     raw_files = []
     for ext in extensions:
@@ -92,6 +101,13 @@ def process_photos_backend(input_path_str, output_path_str, project_name_str, pr
                 metadata = future.result()
                 if metadata.has_gps:
                     valid_photos.append((index, metadata, img_path))
+                elif include_no_gps:
+                    # Crear coordenadas dummy si no existen
+                    if metadata.coordinates is None:
+                        metadata.coordinates = GPSCoordinates(0.0, 0.0, 0.0)
+                    valid_photos.append((index, metadata, img_path))
+            except UnidentifiedImageError:
+                logger.error(f"Error: La imagen {img_path.name} está corrupta o no es válida.")
             except Exception as e:
                 logger.error(f"Error procesando {img_path.name}: {e}")
 
@@ -105,7 +121,7 @@ def process_photos_backend(input_path_str, output_path_str, project_name_str, pr
 
     # Validar si tenemos fotos útiles ANTES de generar reportes vacíos
     if total_valid == 0:
-        raise NoGPSDataError()
+        raise NoGPSDataError(total_files, str(INPUT_DIR))
 
     for i, (_, metadata, img_path) in enumerate(valid_photos):
         if stop_event and stop_event.is_set():
@@ -158,7 +174,7 @@ def _get_unique_path(path: Path) -> Path:
 
 def _index_photos(base_dir: Path) -> dict:
     """Crea un índice por nombre de archivo (lowercase) -> ruta completa."""
-    exts = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".JPG", ".JPEG", ".PNG", ".HEIC", ".HEIF"}
+    exts = IMAGE_EXTENSIONS_SET
     index: dict[str, Path] = {}
     for p in base_dir.rglob('*'):
         if p.is_file() and p.suffix in exts:
@@ -167,13 +183,13 @@ def _index_photos(base_dir: Path) -> dict:
 
 
 def process_excel_to_kmz_backend(
-    excel_path_str,
-    photos_source_dir_str,
-    output_path_str,
-    project_name_str,
-    progress_callback=None,
-    stop_event=None,
-):
+    excel_path_str: str,
+    photos_source_dir_str: str,
+    output_path_str: str,
+    project_name_str: str,
+    progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    stop_event: Optional[Event] = None,
+) -> str:
     """
     Genera un KMZ a partir de un Excel existente (Source of Truth).
     - Usa un índice de archivos para búsquedas O(1).
@@ -198,7 +214,7 @@ def process_excel_to_kmz_backend(
 
     total_items = len(metadata_list)
     if total_items == 0:
-        raise NoGPSDataError()
+        raise NoGPSDataError(0, str(EXCEL_PATH))
 
     # 2. Generar índice de fotos
     if progress_callback:

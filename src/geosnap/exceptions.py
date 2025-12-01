@@ -16,8 +16,12 @@ class NoImagesFoundError(GeoSnapError):
 
 class NoGPSDataError(GeoSnapError):
     """Se lanza si ninguna de las fotos procesadas tiene GPS."""
-    def __init__(self):
-        super().__init__("Terminado, pero no se encontraron fotos con datos GPS válidos.")
+    def __init__(self, total_fotos_escaneadas=0, ruta_carpeta=""):
+        self.total_fotos = total_fotos_escaneadas
+        self.ruta = ruta_carpeta
+        msg = (f"No se encontraron datos GPS válidos en las {total_fotos_escaneadas} "
+               f"fotos escaneadas en {ruta_carpeta}. Verifica si el GPS estaba activado en la cámara.")
+        super().__init__(msg)
 
 class ProcessCancelledError(GeoSnapError):
     """Se lanza cuando el usuario detiene el proceso manualmente."""
