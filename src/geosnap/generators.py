@@ -10,6 +10,12 @@ import shutil
 # Register HEIF opener
 pillow_heif.register_heif_opener()
 
+from .constants import (
+    EXCEL_HEADERS, COLUMN_WIDTHS, 
+    KML_CAMERA_ICON, ARROW_COLOR, ARROW_WIDTH,
+    ARROW_MAIN_AXIS_LENGTH, ARROW_WING_LENGTH, ARROW_WING_ANGLE
+)
+
 class ExcelReportGenerator:
     def __init__(self, title="Listado de Fotos"):
         self.wb = openpyxl.Workbook()
@@ -20,8 +26,7 @@ class ExcelReportGenerator:
         self._setup_headers()
 
     def _setup_headers(self):
-        headers = {"B1": "Nº", "C1": "Archivo", "D1": "DESCRIPCIÓN",
-                   "E1": "Fecha", "F1": "Latitud", "G1": "Longitud", "H1": "Altitud [m]", "I1": "Rumbo [°]"}
+        headers = EXCEL_HEADERS
         
         for cell_coord, text in headers.items():
             cell = self.ws[cell_coord]
@@ -30,19 +35,29 @@ class ExcelReportGenerator:
             cell.border = self.thin_border
 
         # Anchos de columna
-        dims = {'A': 3, 'B': 8, 'C': 30, 'D': 50, 'E': 22, 'F': 15, 'G': 15, 'H': 12, 'I': 10}
+        dims = COLUMN_WIDTHS
         for col, width in dims.items():
             self.ws.column_dimensions[col].width = width
 
     def add_row(self, row_idx, numero_orden, metadata, altitude_val):
+        # Check for No-GPS (dummy coordinates 0.0, 0.0)
+        lat = metadata.coordinates.latitude
+        lon = metadata.coordinates.longitude
+        alt = altitude_val
+        
+        if lat == 0.0 and lon == 0.0:
+            lat = ""
+            lon = ""
+            alt = ""
+
         cells = [
             (2, numero_orden), 
             (3, metadata.filename), 
             (4, ""),
             (5, str(metadata.timestamp)), 
-            (6, metadata.coordinates.latitude),
-            (7, metadata.coordinates.longitude), 
-            (8, altitude_val),
+            (6, lat),
+            (7, lon), 
+            (8, alt),
             (9, metadata.coordinates.azimuth if metadata.coordinates.azimuth is not None else "")
         ]
         for col_idx, val in cells:
@@ -84,9 +99,9 @@ class KmzReportGenerator:
             az = metadata.coordinates.azimuth
             
             # Calcular puntos
-            end_lat, end_lon = self._calculate_dest_point(lat, lon, 30, az)
-            w1_lat, w1_lon = self._calculate_dest_point(end_lat, end_lon, 8, az + 150)
-            w2_lat, w2_lon = self._calculate_dest_point(end_lat, end_lon, 8, az - 150)
+            end_lat, end_lon = self._calculate_dest_point(lat, lon, ARROW_MAIN_AXIS_LENGTH, az)
+            w1_lat, w1_lon = self._calculate_dest_point(end_lat, end_lon, ARROW_WING_LENGTH, az + ARROW_WING_ANGLE)
+            w2_lat, w2_lon = self._calculate_dest_point(end_lat, end_lon, ARROW_WING_LENGTH, az - ARROW_WING_ANGLE)
             
             # Dibujar línea: Inicio -> Fin -> Ala1 -> Fin -> Ala2
             arrow_coords = [
@@ -98,8 +113,8 @@ class KmzReportGenerator:
             ]
             
             ls = pnt.newlinestring(coords=arrow_coords)
-            ls.style.linestyle.color = simplekml.Color.yellow
-            ls.style.linestyle.width = 4
+            ls.style.linestyle.color = ARROW_COLOR
+            ls.style.linestyle.width = ARROW_WIDTH
         else:
             # Crear Placemark con Point
             pnt = self.kml.newpoint(name=titulo_punto)
@@ -107,7 +122,7 @@ class KmzReportGenerator:
 
         # Estilo del icono (Cámara roja)
         # http://maps.google.com/mapfiles/kml/pal4/icon46.png es una cámara
-        pnt.style.iconstyle.icon.href = "http://maps.google.com/mapfiles/kml/pal4/icon46.png"
+        pnt.style.iconstyle.icon.href = KML_CAMERA_ICON
         pnt.style.iconstyle.color = simplekml.Color.red  # Tinte rojo
 
         # Miniatura
