@@ -1,0 +1,15 @@
+# Development Dependencies
+# Install with: pip install -r requirements-dev.txt
+
+# Testing
+pytest>=9.0.0
+pytest-cov>=4.1.0
+
+# Type Checking
+mypy>=1.8.0
+types-Pillow
+types-openpyxl
+
+# Optional: Code formatting (uncomment if needed)
+# black>=24.0.0
+# isort>=5.13.0

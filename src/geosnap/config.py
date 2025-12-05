@@ -1,6 +1,10 @@
 # src/config.py
 import json
+import logging
 from pathlib import Path
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 # Guardamos la configuración en la carpeta de usuario para que sea persistente
 # Windows: C:\Users\TuUsuario\.geosnap_settings.json
@@ -28,7 +32,7 @@ class ConfigManager:
                 config.update(data)
                 return config
         except Exception as e:
-            print(f"⚠️ No se pudo cargar la configuración: {e}")
+            logger.warning(f"No se pudo cargar la configuración: {e}")
             return DEFAULT_CONFIG.copy()
 
     @staticmethod
@@ -43,4 +47,4 @@ class ConfigManager:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=4)
         except Exception as e:
-            print(f"⚠️ Error guardando configuración: {e}")
+            logger.warning(f"Error guardando configuración: {e}")

@@ -28,7 +28,8 @@
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/yourusername/geosnap.git
+    # Replace with your actual repository URL
+    git clone https://github.com/YOUR_USERNAME/geosnap.git
     cd geosnap
     ```
 

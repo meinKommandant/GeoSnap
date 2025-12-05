@@ -28,6 +28,12 @@ output/
 *.log
 .geosnap_logs/
 
+# --- Coverage Reports ---
+.coverage
+coverage.xml
+htmlcov/
+*.cover
+
 # --- Proyecto: Entradas ---
 # Ignoramos TODAS las fotos dentro de input (para no saturar GitHub)
 input/*
