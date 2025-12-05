@@ -36,7 +36,7 @@ class ConfigManager:
             return DEFAULT_CONFIG.copy()
 
         try:
-            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 # Merge with defaults to handle new keys
                 config = DEFAULT_CONFIG.copy()
@@ -51,7 +51,7 @@ class ConfigManager:
         """Guarda la configuración completa en el archivo JSON."""
         # Load existing config first
         current = ConfigManager.load_config()
-        
+
         # Update with provided values
         if input_dir:
             current["input_dir"] = str(input_dir)
@@ -59,12 +59,12 @@ class ConfigManager:
             current["output_dir"] = str(output_dir)
         if project_name:
             current["project_name"] = str(project_name)
-        
+
         # Update any additional settings
         current.update(kwargs)
-        
+
         try:
-            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(current, f, indent=4)
         except Exception as e:
             logger.warning(f"Error guardando configuración: {e}")
@@ -76,9 +76,9 @@ class ConfigManager:
         for key in ["thumbnail_size", "jpeg_quality", "arrow_length", "arrow_width"]:
             if key in settings:
                 current[key] = settings[key]
-        
+
         try:
-            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
                 json.dump(current, f, indent=4)
         except Exception as e:
             logger.warning(f"Error guardando ajustes: {e}")
@@ -94,7 +94,7 @@ class ConfigManager:
         """Save current config as a named profile."""
         profile_path = PROFILES_DIR / f"{name}.json"
         try:
-            with open(profile_path, 'w', encoding='utf-8') as f:
+            with open(profile_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=4)
             logger.info(f"Perfil guardado: {name}")
         except Exception as e:
@@ -107,9 +107,9 @@ class ConfigManager:
         if not profile_path.exists():
             logger.warning(f"Perfil no encontrado: {name}")
             return DEFAULT_CONFIG.copy()
-        
+
         try:
-            with open(profile_path, 'r', encoding='utf-8') as f:
+            with open(profile_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 config = DEFAULT_CONFIG.copy()
                 config.update(data)

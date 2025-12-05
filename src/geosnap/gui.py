@@ -10,6 +10,7 @@ from typing import Any, Tuple
 # Drag-and-drop support (optional)
 try:
     from tkinterdnd2 import DND_FILES, TkinterDnD
+
     HAS_DND = True
 except ImportError:
     HAS_DND = False
@@ -17,12 +18,7 @@ except ImportError:
 # --- IMPORTS ---
 try:
     from .main import process_photos_backend, process_excel_to_kmz_backend
-    from .exceptions import (
-        InputFolderMissingError,
-        NoImagesFoundError,
-        NoGPSDataError,
-        ProcessCancelledError
-    )
+    from .exceptions import InputFolderMissingError, NoImagesFoundError, NoGPSDataError, ProcessCancelledError
     from .config import ConfigManager
     from .constants import APP_TITLE, APP_SIZE, APP_MIN_SIZE, UIMessages
     from .settings import SettingsDialog
@@ -31,9 +27,9 @@ except ImportError as e:
     if not tk._default_root:
         root_temp = tk.Tk()
         root_temp.withdraw()
-    messagebox.showerror("Error de Importación",
-                         f"Falta módulo necesario.\nDetalle: {e}\n"
-                         "Ejecuta desde la carpeta 'src'.")
+    messagebox.showerror(
+        "Error de Importación", f"Falta módulo necesario.\nDetalle: {e}\nEjecuta desde la carpeta 'src'."
+    )
     sys.exit(1)
 
 
@@ -42,10 +38,10 @@ class GeoPhotoApp:
         self.root = root
         self.root.title(APP_TITLE)
         self.root.geometry(APP_SIZE)
-        
+
         # Ventana ajustable
-        self.root.resizable(True, True) 
-        self.root.minsize(*APP_MIN_SIZE)     
+        self.root.resizable(True, True)
+        self.root.minsize(*APP_MIN_SIZE)
 
         self.stop_event = threading.Event()
 
@@ -56,7 +52,7 @@ class GeoPhotoApp:
         self.output_dir_var = tk.StringVar(value=self.config.get("output_dir", ""))
         self.project_name_var = tk.StringVar(value=self.config.get("project_name", "Mi_Reporte"))
         self.progress_var = tk.DoubleVar()
-        
+
         # Batch processing
         self.batch_processor = BatchProcessor()
         self.queue_count_var = tk.StringVar(value="Queue: 0")
@@ -64,13 +60,9 @@ class GeoPhotoApp:
         # --- HEADER ---
         header_frame = ttk.Frame(root, bootstyle="primary")
         header_frame.pack(fill=X)
-        
+
         ttk.Label(
-            header_frame, 
-            text=APP_TITLE,
-            font=("Helvetica", 24, "bold"), 
-            bootstyle="inverse-primary",
-            padding=15
+            header_frame, text=APP_TITLE, font=("Helvetica", 24, "bold"), bootstyle="inverse-primary", padding=15
         ).pack()
 
         # --- MAIN CONTAINER ---
@@ -80,23 +72,20 @@ class GeoPhotoApp:
         # 0. Mode Switch
         self.is_reverse_mode = tk.BooleanVar(value=False)
         # Initial text updated with "+ EXCEL"
-        self.mode_text_var = tk.StringVar(value=UIMessages.MODE_PHOTOS) 
+        self.mode_text_var = tk.StringVar(value=UIMessages.MODE_PHOTOS)
         self.mode_switch = ttk.Checkbutton(
             main_frame,
             textvariable=self.mode_text_var,
             bootstyle="success-round-toggle",
             variable=self.is_reverse_mode,
-            command=self._toggle_mode_ui
+            command=self._toggle_mode_ui,
         )
         self.mode_switch.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 15))
 
         # 0.b Checkbox "Incluir fotos sin GPS"
         self.include_no_gps_var = tk.BooleanVar(value=False)
         self.chk_no_gps = ttk.Checkbutton(
-            main_frame,
-            text="Incluir fotos sin GPS",
-            variable=self.include_no_gps_var,
-            bootstyle="secondary"
+            main_frame, text="Incluir fotos sin GPS", variable=self.include_no_gps_var, bootstyle="secondary"
         )
         self.chk_no_gps.grid(row=0, column=2, sticky="e", pady=(0, 15))
 
@@ -113,27 +102,25 @@ class GeoPhotoApp:
         self.excel_label = ttk.Label(main_frame, text="Excel Origen", font=("Helvetica", 10, "bold"))
         self.excel_entry = ttk.Entry(main_frame, textvariable=self.excel_path_var, width=45, state="readonly")
         self.excel_btn = ttk.Button(
-            main_frame,
-            text="Buscar",
-            bootstyle="info-outline",
-            command=lambda: self._browse_excel_file()
+            main_frame, text="Buscar", bootstyle="info-outline", command=lambda: self._browse_excel_file()
         )
-        
+
         self.excel_label.grid(row=2, column=0, sticky="w", pady=10)
         self.excel_entry.grid(row=2, column=1, pady=10, padx=10, sticky="ew")
         self.excel_btn.grid(row=2, column=2, pady=10)
-        
+
         # Enable DnD for Excel entry
         self._enable_dnd(self.excel_entry, self.excel_path_var)
-        
+
         self.excel_label.grid_remove()
         self.excel_entry.grid_remove()
         self.excel_btn.grid_remove()
 
         # 2. Nombre del Proyecto
         ttk.Label(main_frame, text="Nombre Proyecto", font=("Helvetica", 10, "bold")).grid(
-            row=4, column=0, sticky="w", pady=(20, 5))
-        
+            row=4, column=0, sticky="w", pady=(20, 5)
+        )
+
         ttk.Entry(main_frame, textvariable=self.project_name_var, width=40).grid(
             row=4, column=1, sticky="ew", pady=(20, 5), padx=10
         )
@@ -148,10 +135,7 @@ class GeoPhotoApp:
         self.status_label.pack(fill=X, pady=(0, 5))
 
         self.progress_bar = ttk.Progressbar(
-            self.progress_frame, 
-            variable=self.progress_var, 
-            maximum=100, 
-            bootstyle="success-striped"
+            self.progress_frame, variable=self.progress_var, maximum=100, bootstyle="success-striped"
         )
         self.progress_bar.pack(fill=X)
 
@@ -161,26 +145,26 @@ class GeoPhotoApp:
 
         # UNIFIED "GO" BUTTON
         self.btn_generate = ttk.Button(
-            btn_frame, 
-            text=UIMessages.BTN_GO, 
-            bootstyle="success", 
+            btn_frame,
+            text=UIMessages.BTN_GO,
+            bootstyle="success",
             cursor="hand2",
             command=self.start_generation_thread,
-            width=20
+            width=20,
         )
         self.btn_generate.pack(side=LEFT, fill=X, expand=True, padx=(0, 10))
 
         self.btn_cancel = ttk.Button(
-            btn_frame, 
-            text="Cancelar", 
-            bootstyle="danger-outline", 
+            btn_frame,
+            text="Cancelar",
+            bootstyle="danger-outline",
             cursor="hand2",
-            state=DISABLED, 
+            state=DISABLED,
             command=self.cancel_process,
-            width=10
+            width=10,
         )
         self.btn_cancel.pack(side=RIGHT)
-        
+
         # Settings button
         self.btn_settings = ttk.Button(
             btn_frame,
@@ -188,21 +172,16 @@ class GeoPhotoApp:
             bootstyle="secondary-outline",
             cursor="hand2",
             command=self._open_settings,
-            width=10
+            width=10,
         )
         self.btn_settings.pack(side=RIGHT, padx=(0, 10))
-        
+
         # Batch queue button
         self.btn_add_queue = ttk.Button(
-            btn_frame,
-            text="+ Cola",
-            bootstyle="info-outline",
-            cursor="hand2",
-            command=self._add_to_queue,
-            width=8
+            btn_frame, text="+ Cola", bootstyle="info-outline", cursor="hand2", command=self._add_to_queue, width=8
         )
         self.btn_add_queue.pack(side=RIGHT, padx=(0, 5))
-        
+
         # Queue counter label
         self.queue_label = ttk.Label(btn_frame, textvariable=self.queue_count_var, bootstyle="info")
         self.queue_label.pack(side=RIGHT, padx=(0, 5))
@@ -210,42 +189,39 @@ class GeoPhotoApp:
         # Ajustar UI inicial
         self._toggle_mode_ui()
 
-    def _crear_selector_carpeta(self, parent: ttk.Frame, row: int, label_text: str, var: tk.StringVar) -> Tuple[ttk.Label, ttk.Entry, ttk.Button]:
+    def _crear_selector_carpeta(
+        self, parent: ttk.Frame, row: int, label_text: str, var: tk.StringVar
+    ) -> Tuple[ttk.Label, ttk.Entry, ttk.Button]:
         label = ttk.Label(parent, text=label_text, font=("Helvetica", 10, "bold"))
         label.grid(row=row, column=0, sticky="w", pady=10)
 
         entry = ttk.Entry(parent, textvariable=var, width=45, state="readonly")
         entry.grid(row=row, column=1, pady=10, padx=10, sticky="ew")
-        
+
         # Enable drag-and-drop if available
         self._enable_dnd(entry, var)
 
-        btn = ttk.Button(
-            parent,
-            text="Buscar",
-            bootstyle="info-outline",
-            command=lambda: self._browse_folder(var)
-        )
+        btn = ttk.Button(parent, text="Buscar", bootstyle="info-outline", command=lambda: self._browse_folder(var))
         btn.grid(row=row, column=2, pady=10)
         return label, entry, btn
-    
+
     def _enable_dnd(self, widget: ttk.Entry, var: tk.StringVar) -> None:
         """Enable drag-and-drop for folder/file selection."""
         if not HAS_DND:
             return
         try:
             widget.drop_target_register(DND_FILES)
-            widget.dnd_bind('<<Drop>>', lambda e: self._handle_drop(e, var))
+            widget.dnd_bind("<<Drop>>", lambda e: self._handle_drop(e, var))
         except Exception:
             pass  # DnD not available, silently ignore
-    
+
     def _handle_drop(self, event: Any, var: tk.StringVar) -> None:
         """Handle dropped files/folders."""
         # Clean up the path (remove braces on Windows)
         path = event.data.strip()
-        if path.startswith('{') and path.endswith('}'):
+        if path.startswith("{") and path.endswith("}"):
             path = path[1:-1]
-        
+
         # Validate it's a directory for folder vars
         if Path(path).is_dir():
             var.set(path)
@@ -287,7 +263,7 @@ class GeoPhotoApp:
         excel_path = self.excel_path_var.get()
 
         if reverse_mode:
-            if not excel_path or not excel_path.lower().endswith('.xlsx'):
+            if not excel_path or not excel_path.lower().endswith(".xlsx"):
                 messagebox.showwarning("Error", "Selecciona un Excel válido (.xlsx).")
                 return
             if not Path(excel_path).exists():
@@ -307,7 +283,7 @@ class GeoPhotoApp:
         ConfigManager.save_config(input_path, output_path, project_name)
 
         self.stop_event.clear()
-        mode_text = UIMessages.PROCESSING 
+        mode_text = UIMessages.PROCESSING
         self.btn_generate.config(state=DISABLED, text=mode_text)
         self.btn_cancel.config(state=NORMAL)
         status_text = UIMessages.STARTING
@@ -316,7 +292,7 @@ class GeoPhotoApp:
 
         thread = threading.Thread(
             target=self._run_backend_process,
-            args=(input_path, output_path, project_name, reverse_mode, excel_path, include_no_gps)
+            args=(input_path, output_path, project_name, reverse_mode, excel_path, include_no_gps),
         )
         thread.daemon = True
         thread.start()
@@ -327,20 +303,33 @@ class GeoPhotoApp:
             self.status_label.config(text=UIMessages.CANCELLING, bootstyle="danger")
             self.btn_cancel.config(state=DISABLED)
 
-    def _run_backend_process(self, input_path: str, output_path: str, project_name: str, reverse_mode: bool = False, excel_path: str = "", include_no_gps: bool = False) -> None:
+    def _run_backend_process(
+        self,
+        input_path: str,
+        output_path: str,
+        project_name: str,
+        reverse_mode: bool = False,
+        excel_path: str = "",
+        include_no_gps: bool = False,
+    ) -> None:
         try:
             if reverse_mode:
                 resultado_msg = process_excel_to_kmz_backend(
-                    excel_path, input_path, output_path, project_name,
+                    excel_path,
+                    input_path,
+                    output_path,
+                    project_name,
                     progress_callback=self.update_progress_safe,
                     stop_event=self.stop_event,
                 )
             else:
                 resultado_msg = process_photos_backend(
-                    input_path, output_path, project_name,
+                    input_path,
+                    output_path,
+                    project_name,
                     progress_callback=self.update_progress_safe,
                     stop_event=self.stop_event,
-                    include_no_gps=include_no_gps
+                    include_no_gps=include_no_gps,
                 )
             self.root.after(0, lambda: self._show_success(resultado_msg))
 
@@ -389,12 +378,12 @@ class GeoPhotoApp:
             "arrow_length": self.config.get("arrow_length", 30),
             "arrow_width": self.config.get("arrow_width", 4),
         }
-        
+
         def on_save(new_settings):
             ConfigManager.update_settings(new_settings)
             self.config.update(new_settings)
             self.status_label.config(text="✅ Ajustes guardados", bootstyle="success")
-        
+
         SettingsDialog(self.root, current_settings, on_save)
 
     def _add_to_queue(self) -> None:
@@ -403,7 +392,7 @@ class GeoPhotoApp:
         output_path = self.output_dir_var.get()
         project_name = self.project_name_var.get()
         include_no_gps = self.include_no_gps_var.get()
-        
+
         # Validate
         if not input_path or not output_path:
             messagebox.showwarning("Error", "Selecciona carpetas de Entrada y Salida.")
@@ -411,13 +400,13 @@ class GeoPhotoApp:
         if not project_name:
             messagebox.showwarning("Error", "Escribe un nombre para el proyecto.")
             return
-        
+
         # Add to queue
         self.batch_processor.add_job(input_path, output_path, project_name, include_no_gps)
         count = self.batch_processor.get_pending_count()
         self.queue_count_var.set(f"Cola: {count}")
         self.status_label.config(text=f"✅ Añadido a cola: {project_name}", bootstyle="success")
-        
+
         # Ask if user wants to process now
         if count >= 2:
             if messagebox.askyesno("Procesar Cola", f"Hay {count} trabajos en cola. ¿Procesar todos ahora?"):
@@ -428,20 +417,19 @@ class GeoPhotoApp:
         if self.batch_processor.get_pending_count() == 0:
             messagebox.showinfo("Info", "La cola está vacía.")
             return
-        
+
         self.stop_event.clear()
         self.btn_generate.config(state=DISABLED, text="Procesando...")
         self.btn_cancel.config(state=NORMAL)
         self.btn_add_queue.config(state=DISABLED)
         self.status_label.config(text="Procesando cola...", bootstyle="warning")
-        
+
         def run_batch():
             result = self.batch_processor.process_all(
-                progress_callback=self.update_progress_safe,
-                stop_event=self.stop_event
+                progress_callback=self.update_progress_safe, stop_event=self.stop_event
             )
             self.root.after(0, lambda: self._show_batch_result(result))
-        
+
         thread = threading.Thread(target=run_batch)
         thread.daemon = True
         thread.start()
@@ -451,16 +439,16 @@ class GeoPhotoApp:
         self._reset_ui_state()
         self.btn_add_queue.config(state=NORMAL)
         self.queue_count_var.set(f"Cola: {self.batch_processor.get_pending_count()}")
-        
+
         summary = f"Completados: {result.completed}/{result.total_jobs}"
         if result.failed > 0:
             summary += f" | Fallidos: {result.failed}"
         if result.cancelled > 0:
             summary += f" | Cancelados: {result.cancelled}"
-        
+
         self.progress_var.set(100)
         self.status_label.config(text=f"✅ {summary}", bootstyle="success")
-        
+
         # Show details
         details = "\n".join(result.details)
         messagebox.showinfo("Resultado Lote", f"{summary}\n\n{details}")
@@ -482,13 +470,14 @@ class GeoPhotoApp:
             # Texto actualizado con EXCEL
             self.mode_text_var.set(UIMessages.MODE_PHOTOS)
             self.status_label.config(text=UIMessages.STATUS_PHOTOS)
-        
+
         # SIEMPRE "GO"
         self.btn_generate.config(text=UIMessages.BTN_GO)
 
 
 def main():
     import importlib.util
+
     if not all(importlib.util.find_spec(m) for m in ["PIL", "simplekml", "openpyxl"]):
         root_temp = tk.Tk()
         root_temp.withdraw()
@@ -503,6 +492,7 @@ def main():
         app_window = ttk.Window(themename="cosmo")
     GeoPhotoApp(app_window)
     app_window.mainloop()
+
 
 if __name__ == "__main__":
     main()

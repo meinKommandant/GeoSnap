@@ -23,6 +23,7 @@ from .models import PhotoMetadata, GPSCoordinates
 # Configure logger
 logger = logging.getLogger(__name__)
 
+
 class GPSPhotoExtractor:
     def extract_metadata(self, file_path: Path) -> PhotoMetadata:
         """
@@ -39,10 +40,7 @@ class GPSPhotoExtractor:
                 return PhotoMetadata(file_path.name, str(file_path), None, None)
 
             # 2. Map tags
-            exif_data = {
-                ExifTags.TAGS.get(k, k): v
-                for k, v in raw_exif.items()
-            }
+            exif_data = {ExifTags.TAGS.get(k, k): v for k, v in raw_exif.items()}
 
             # 3. Search for GPS data (ID 34853)
             gps_info = raw_exif.get(34853)
@@ -64,10 +62,7 @@ class GPSPhotoExtractor:
                 logger.debug(f"No GPS info found for {file_path.name}")
 
             return PhotoMetadata(
-                filename=file_path.name,
-                filepath=str(file_path),
-                timestamp=timestamp,
-                coordinates=gps_coords
+                filename=file_path.name, filepath=str(file_path), timestamp=timestamp, coordinates=gps_coords
             )
 
         except Exception as e:
@@ -75,10 +70,10 @@ class GPSPhotoExtractor:
             return PhotoMetadata(file_path.name, str(file_path), None, None)
 
     def _get_date(self, exif_data: Dict[str, Any]) -> Optional[datetime]:
-        date_str = exif_data.get('DateTimeOriginal') or exif_data.get('DateTime')
+        date_str = exif_data.get("DateTimeOriginal") or exif_data.get("DateTime")
         if date_str and isinstance(date_str, str):
             try:
-                return datetime.strptime(date_str, '%Y:%m:%d %H:%M:%S')
+                return datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
             except ValueError:
                 logger.warning(f"Invalid date format: {date_str}")
                 return None
@@ -87,7 +82,7 @@ class GPSPhotoExtractor:
     def _get_lat_lon(self, gps_info: Dict[int, Any], timestamp: Optional[datetime] = None) -> Optional[GPSCoordinates]:
         # GPS tag mapping using ExifTags.GPSTAGS if needed,
         # but IDs are standard: 1=LatRef, 2=Lat, 3=LonRef, 4=Lon, 6=Alt
-        
+
         lat_dms = gps_info.get(2)
         lat_ref = gps_info.get(1)
         lon_dms = gps_info.get(4)
@@ -105,7 +100,7 @@ class GPSPhotoExtractor:
                         alt = float(alt[0]) / float(alt[1])
                     except (ZeroDivisionError, IndexError, ValueError):
                         alt = 0.0
-                
+
                 # Ensure alt is float
                 try:
                     alt = float(alt)
@@ -123,16 +118,16 @@ class GPSPhotoExtractor:
                             val_az = float(raw_az[0]) / float(raw_az[1])
                         else:
                             val_az = float(raw_az)
-                        
+
                         azimuth = val_az
 
                         # Magnetic Correction
                         # Ref 'M' = Magnetic North, 'T' = True North
-                        ref = gps_info.get(16, 'T')
+                        ref = gps_info.get(16, "T")
                         if isinstance(ref, str):
                             ref = ref.upper()
-                        
-                        if ref == 'M' and geomag and timestamp:
+
+                        if ref == "M" and geomag and timestamp:
                             try:
                                 # Calculate declination
                                 # geomag.declination(lat, lon, alt=0, date=date)
@@ -142,10 +137,12 @@ class GPSPhotoExtractor:
                                 azimuth += dec
                                 # Normalizar a 0-360
                                 azimuth = azimuth % 360.0
-                                logger.info(f"Corrected magnetic bearing: {val_az:.2f} -> {azimuth:.2f} (Dec: {dec:.2f})")
+                                logger.info(
+                                    f"Corrected magnetic bearing: {val_az:.2f} -> {azimuth:.2f} (Dec: {dec:.2f})"
+                                )
                             except Exception as e:
                                 logger.warning(f"Error calculating magnetic declination: {e}")
-                        
+
                     except Exception as e:
                         logger.warning(f"Error processing azimuth: {e}")
 
@@ -160,7 +157,7 @@ class GPSPhotoExtractor:
 
             decimal = d + (m / 60.0) + (s / 3600.0)
 
-            if ref.upper() in ['S', 'W']:
+            if ref.upper() in ["S", "W"]:
                 decimal = -decimal
             return decimal
         except Exception as e:

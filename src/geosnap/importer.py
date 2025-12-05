@@ -44,7 +44,7 @@ class ExcelImporter:
             for key, variants in self.HEADER_KEYS.items():
                 if any(v in text for v in variants):
                     header_map[key] = cell.column  # 1-based index
-        
+
         logger.info(f"Detected header map: {header_map}")
 
         # Critical validations
@@ -58,6 +58,7 @@ class ExcelImporter:
         results: List[PhotoMetadata] = []
 
         for row_idx in range(2, ws.max_row + 1):
+
             def _val(col_key: str):
                 col = header_map.get(col_key)
                 return ws.cell(row=row_idx, column=col).value if col else None
@@ -133,6 +134,7 @@ class ExcelImporter:
     def _parse_datetime(self, value):
         # openpyxl usually returns datetime for valid date cells
         from datetime import datetime, date
+
         if value is None or value == "":
             return None
         if isinstance(value, datetime):

@@ -12,22 +12,21 @@ from .extractor import GPSPhotoExtractor
 from .models import GPSCoordinates
 from .generators import ExcelReportGenerator, KmzReportGenerator
 from .importer import ExcelImporter
-from .exceptions import (InputFolderMissingError, NoImagesFoundError,
-                        NoGPSDataError, ProcessCancelledError)
+from .exceptions import InputFolderMissingError, NoImagesFoundError, NoGPSDataError, ProcessCancelledError
 from .constants import IMAGE_EXTENSIONS, IMAGE_EXTENSIONS_SET
 
 # Configure logger
-log_dir = Path.home() / '.geosnap_logs'
+log_dir = Path.home() / ".geosnap_logs"
 log_dir.mkdir(exist_ok=True)
-log_file = log_dir / 'app.log'
+log_file = log_dir / "app.log"
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=5, encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+        RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=5, encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ def process_photos_backend(
     project_name_str: str,
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
     stop_event: Optional[Event] = None,
-    include_no_gps: bool = False
+    include_no_gps: bool = False,
 ) -> str:
     """
     Robust backend that raises controlled exceptions on error.
@@ -84,8 +83,7 @@ def process_photos_backend(
     # 4. PARALLEL PROCESSING
     with ThreadPoolExecutor() as executor:
         future_to_index = {
-            executor.submit(extractor.extract_metadata, img_path): i
-            for i, img_path in enumerate(image_files)
+            executor.submit(extractor.extract_metadata, img_path): i for i, img_path in enumerate(image_files)
         }
 
         for i, future in enumerate(as_completed(future_to_index)):
@@ -176,7 +174,7 @@ def _index_photos(base_dir: Path) -> dict:
     """Creates an index by filename (lowercase) -> full path."""
     exts = IMAGE_EXTENSIONS_SET
     index: dict[str, Path] = {}
-    for p in base_dir.rglob('*'):
+    for p in base_dir.rglob("*"):
         if p.is_file() and p.suffix in exts:
             index[p.name.lower()] = p
     return index
@@ -223,7 +221,7 @@ def process_excel_to_kmz_backend(
 
     # 3. Calculate unique output path
     base_name = (project_name_str or "reporte_desde_excel").strip()
-    base_name = base_name.replace('.kmz', '')
+    base_name = base_name.replace(".kmz", "")
     THUMBS_DIR = OUTPUT_DIR / "temp_thumbnails"
     kmz_target = OUTPUT_DIR / f"{base_name}.kmz"
     kmz_path_unique = _get_unique_path(kmz_target)
