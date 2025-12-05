@@ -14,7 +14,7 @@ try:
 except ImportError:
     HAS_DND = False
 
-# --- IMPORTACIONES ---
+# --- IMPORTS ---
 try:
     from .main import process_photos_backend, process_excel_to_kmz_backend
     from .exceptions import (
@@ -49,7 +49,7 @@ class GeoPhotoApp:
 
         self.stop_event = threading.Event()
 
-        # --- CARGAR CONFIGURACIÓN ---
+        # --- LOAD CONFIGURATION ---
         self.config = ConfigManager.load_config()
 
         self.input_dir_var = tk.StringVar(value=self.config.get("input_dir", ""))
@@ -59,7 +59,7 @@ class GeoPhotoApp:
         
         # Batch processing
         self.batch_processor = BatchProcessor()
-        self.queue_count_var = tk.StringVar(value="Cola: 0")
+        self.queue_count_var = tk.StringVar(value="Queue: 0")
 
         # --- HEADER ---
         header_frame = ttk.Frame(root, bootstyle="primary")
@@ -73,13 +73,13 @@ class GeoPhotoApp:
             padding=15
         ).pack()
 
-        # --- CONTENEDOR PRINCIPAL ---
+        # --- MAIN CONTAINER ---
         main_frame = ttk.Frame(root, padding=20)
         main_frame.pack(fill=BOTH, expand=True)
 
-        # 0. Switch de Modo
+        # 0. Mode Switch
         self.is_reverse_mode = tk.BooleanVar(value=False)
-        # Texto inicial actualizado con "+ EXCEL"
+        # Initial text updated with "+ EXCEL"
         self.mode_text_var = tk.StringVar(value=UIMessages.MODE_PHOTOS) 
         self.mode_switch = ttk.Checkbutton(
             main_frame,
@@ -100,7 +100,7 @@ class GeoPhotoApp:
         )
         self.chk_no_gps.grid(row=0, column=2, sticky="e", pady=(0, 15))
 
-        # 1. Selección de Carpetas
+        # 1. Folder Selection
         self.input_label, self.input_entry, self.input_btn = self._crear_selector_carpeta(
             main_frame, row=1, label_text="Fotos Origen", var=self.input_dir_var
         )
@@ -140,7 +140,7 @@ class GeoPhotoApp:
 
         main_frame.columnconfigure(1, weight=1)
 
-        # --- BARRA DE PROGRESO ---
+        # --- PROGRESS BAR ---
         self.progress_frame = ttk.Frame(root, padding=20)
         self.progress_frame.pack(fill=X, side=BOTTOM)
 
@@ -155,11 +155,11 @@ class GeoPhotoApp:
         )
         self.progress_bar.pack(fill=X)
 
-        # --- BOTONES ---
+        # --- BUTTONS ---
         btn_frame = ttk.Frame(root, padding=20)
         btn_frame.pack(fill=X, side=BOTTOM)
 
-        # BOTÓN UNIFICADO "GO"
+        # UNIFIED "GO" BUTTON
         self.btn_generate = ttk.Button(
             btn_frame, 
             text=UIMessages.BTN_GO, 

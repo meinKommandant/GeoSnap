@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable, Optional
 from threading import Event
 
-# --- IMPORTACIONES NUEVAS ---
+# --- IMPORTS ---
 from .extractor import GPSPhotoExtractor
 from .models import GPSCoordinates
 from .generators import ExcelReportGenerator, KmzReportGenerator
@@ -16,7 +16,7 @@ from .exceptions import (InputFolderMissingError, NoImagesFoundError,
                         NoGPSDataError, ProcessCancelledError)
 from .constants import IMAGE_EXTENSIONS, IMAGE_EXTENSIONS_SET
 
-# Configurar logger
+# Configure logger
 log_dir = Path.home() / '.geosnap_logs'
 log_dir.mkdir(exist_ok=True)
 log_file = log_dir / 'app.log'
@@ -41,9 +41,9 @@ def process_photos_backend(
     include_no_gps: bool = False
 ) -> str:
     """
-    Backend robusto que lanza excepciones controladas en caso de error.
+    Robust backend that raises controlled exceptions on error.
     """
-    logger.info("Iniciando proceso de backend")
+    logger.info("Starting backend process")
 
     # 1. Validar rutas
     INPUT_DIR = Path(input_path_str)
@@ -51,16 +51,16 @@ def process_photos_backend(
     THUMBS_DIR = OUTPUT_DIR / "temp_thumbnails"
 
     if not INPUT_DIR.exists():
-        # CAMBIO: Lanzar excepción en lugar de return string
+        # Raise exception instead of returning string
         raise InputFolderMissingError(INPUT_DIR)
 
-    # Nombre base
+    # Base name
     base_name = project_name_str.strip() or "reporte_completo"
     base_name = base_name.replace(".kmz", "").replace(".xlsx", "")
-    # 3. OBTENER IMÁGENES
-    # Definición de extensiones soportadas (incluye HEIC/HEIF)
+    # 3. GET IMAGES
+    # Supported extensions definition (includes HEIC/HEIF)
     extensions = IMAGE_EXTENSIONS
-    # Búsqueda de archivos
+    # File search
     raw_files = []
     for ext in extensions:
         raw_files.extend(INPUT_DIR.glob(ext))
@@ -68,20 +68,20 @@ def process_photos_backend(
     total_files = len(image_files)
 
     if total_files == 0:
-        # CAMBIO: Lanzar excepción específica
+        # Raise specific exception
         raise NoImagesFoundError(INPUT_DIR)
 
-    logger.info(f"Encontradas {total_files} imágenes para procesar")
+    logger.info(f"Found {total_files} images to process")
 
     processed_count = 0
     valid_photos = []
 
-    # 2. INICIALIZAR MOTORES
+    # 2. INITIALIZE ENGINES
     extractor = GPSPhotoExtractor()
     excel_gen = ExcelReportGenerator()
     kmz_gen = KmzReportGenerator(THUMBS_DIR)
 
-    # 4. PROCESAMIENTO PARALELO
+    # 4. PARALLEL PROCESSING
     with ThreadPoolExecutor() as executor:
         future_to_index = {
             executor.submit(extractor.extract_metadata, img_path): i
@@ -89,9 +89,9 @@ def process_photos_backend(
         }
 
         for i, future in enumerate(as_completed(future_to_index)):
-            # CAMBIO: Chequeo de cancelación con excepción
+            # Cancellation check with exception
             if stop_event and stop_event.is_set():
-                logger.info("Cancelación detectada en fase de extracción")
+                logger.info("Cancellation detected during extraction phase")
                 raise ProcessCancelledError()
 
             index = future_to_index[future]
@@ -102,7 +102,7 @@ def process_photos_backend(
                 if metadata.has_gps:
                     valid_photos.append((index, metadata, img_path))
                 elif include_no_gps:
-                    # Crear coordenadas dummy si no existen
+                    # Create dummy coordinates if none exist
                     if metadata.coordinates is None:
                         metadata.coordinates = GPSCoordinates(0.0, 0.0, 0.0)
                     valid_photos.append((index, metadata, img_path))
@@ -112,14 +112,14 @@ def process_photos_backend(
                 logger.error(f"Error procesando {img_path.name}: {e}")
 
             if progress_callback:
-                progress_callback(i + 1, total_files, f"Analizando: {img_path.name}")
+                progress_callback(i + 1, total_files, f"Analyzing: {img_path.name}")
 
     valid_photos.sort(key=lambda x: x[0])
 
-    # 5. GENERACIÓN DE REPORTES
+    # 5. REPORT GENERATION
     total_valid = len(valid_photos)
 
-    # Validar si tenemos fotos útiles ANTES de generar reportes vacíos
+    # Validate we have useful photos BEFORE generating empty reports
     if total_valid == 0:
         raise NoGPSDataError(total_files, str(INPUT_DIR))
 
@@ -128,7 +128,7 @@ def process_photos_backend(
             raise ProcessCancelledError()
 
         if progress_callback:
-            progress_callback(i, total_valid, f"Generando reporte: {metadata.filename}")
+            progress_callback(i, total_valid, f"Generating report: {metadata.filename}")
 
         numero_orden = i + 1
         val_alt = float(f"{metadata.coordinates.altitude:.2f}")
@@ -139,9 +139,9 @@ def process_photos_backend(
     processed_count = total_valid
 
     if progress_callback:
-        progress_callback(total_files, total_files, "Guardando archivos...")
+        progress_callback(total_files, total_files, "Saving files...")
 
-    # 6. GUARDAR
+    # 6. SAVE
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     kmz_path = OUTPUT_DIR / f"{base_name}.kmz"
     xlsx_path = OUTPUT_DIR / f"{base_name}.xlsx"
@@ -150,15 +150,15 @@ def process_photos_backend(
     excel_gen.save(xlsx_path)
     kmz_gen.cleanup()
 
-    logger.info(f"Proceso completado. {processed_count} fotos procesadas.")
-    # El retorno de éxito sigue siendo un string o podría ser un objeto Result,
-    # pero como es el "happy path", está bien devolver el mensaje final.
-    return f"¡ÉXITO!\nProcesadas: {processed_count} fotos.\nGenerados:\n- {kmz_path.name}\n- {xlsx_path.name}"
+    logger.info(f"Process completed. {processed_count} photos processed.")
+    # Success return is still a string or could be a Result object,
+    # but since it's the "happy path", returning the final message is fine.
+    return f"SUCCESS!\nProcessed: {processed_count} photos.\nGenerated:\n- {kmz_path.name}\n- {xlsx_path.name}"
 
 
-# --- Helpers y backend: Fase 1 - Backend Modo Inverso ---
+# --- Helpers and backend: Phase 1 - Reverse Mode Backend ---
 def _get_unique_path(path: Path) -> Path:
-    """Si path existe, devuelve path con sufijo incremental _1, _2, ..."""
+    """If path exists, returns path with incremental suffix _1, _2, ..."""
     if not path.exists():
         return path
     base = path.stem
@@ -173,7 +173,7 @@ def _get_unique_path(path: Path) -> Path:
 
 
 def _index_photos(base_dir: Path) -> dict:
-    """Crea un índice por nombre de archivo (lowercase) -> ruta completa."""
+    """Creates an index by filename (lowercase) -> full path."""
     exts = IMAGE_EXTENSIONS_SET
     index: dict[str, Path] = {}
     for p in base_dir.rglob('*'):
@@ -191,11 +191,11 @@ def process_excel_to_kmz_backend(
     stop_event: Optional[Event] = None,
 ) -> str:
     """
-    Genera un KMZ a partir de un Excel existente (Source of Truth).
-    - Usa un índice de archivos para búsquedas O(1).
-    - Maneja nombres de salida duplicados automáticamente.
+    Generates a KMZ from an existing Excel file (Source of Truth).
+    - Uses a file index for O(1) lookups.
+    - Handles duplicate output names automatically.
     """
-    logger.info("Iniciando proceso inverso desde Excel")
+    logger.info("Starting reverse process from Excel")
 
     from datetime import datetime
     import os
@@ -216,12 +216,12 @@ def process_excel_to_kmz_backend(
     if total_items == 0:
         raise NoGPSDataError(0, str(EXCEL_PATH))
 
-    # 2. Generar índice de fotos
+    # 2. Generate photo index
     if progress_callback:
-        progress_callback(0, total_items, "Indexando fotos...")
+        progress_callback(0, total_items, "Indexing photos...")
     index = _index_photos(PHOTOS_DIR)
 
-    # 3. Calcular ruta de salida única
+    # 3. Calculate unique output path
     base_name = (project_name_str or "reporte_desde_excel").strip()
     base_name = base_name.replace('.kmz', '')
     THUMBS_DIR = OUTPUT_DIR / "temp_thumbnails"
@@ -240,15 +240,15 @@ def process_excel_to_kmz_backend(
         filename_key = metadata.filename.strip().lower()
         img_path = index.get(filename_key)
         if img_path is None:
-            logger.warning(f"Foto {metadata.filename} no encontrada en directorio fuente: {PHOTOS_DIR}")
+            logger.warning(f"Photo {metadata.filename} not found in source directory: {PHOTOS_DIR}")
             if progress_callback:
-                progress_callback(i + 1, total_items, f"No encontrada: {metadata.filename}")
+                progress_callback(i + 1, total_items, f"Not found: {metadata.filename}")
             continue
 
         # Resolver filepath en el objeto metadata
         metadata.filepath = str(img_path)
 
-        # Si no hay fecha, intentar desde el sistema de archivos
+        # If no date, try from file system
         if metadata.timestamp is None:
             try:
                 ts = os.path.getmtime(img_path)
@@ -267,10 +267,10 @@ def process_excel_to_kmz_backend(
         kmz_gen.add_point(numero_orden, metadata, img_path, altitude_val)
 
         if progress_callback:
-            progress_callback(i + 1, total_items, f"Agregada: {metadata.filename}")
+            progress_callback(i + 1, total_items, f"Added: {metadata.filename}")
 
-    # 6. Guardar KMZ
+    # 6. Save KMZ
     kmz_gen.save(kmz_path_unique)
     kmz_gen.cleanup()
 
-    return f"¡ÉXITO! KMZ generado desde Excel en: {kmz_path_unique}"
+    return f"SUCCESS! KMZ generated from Excel at: {kmz_path_unique}"

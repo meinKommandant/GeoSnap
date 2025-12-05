@@ -91,7 +91,7 @@ def test_parse_missing_critical_columns(mock_load_workbook, importer):
     mock_wb.active = mock_ws
     mock_load_workbook.return_value = mock_wb
     
-    with pytest.raises(ValueError, match="Faltan columnas críticas"):
+    with pytest.raises(ValueError, match="Missing critical columns"):
         importer.parse_excel("dummy.xlsx")
 
 @patch("geosnap.importer.openpyxl.load_workbook")

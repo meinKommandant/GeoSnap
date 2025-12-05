@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, Tuple
 
-# Intentar importar librería de corrección magnética
+# Try to import magnetic correction library
 try:
     import geomag
 except ImportError:
@@ -17,34 +17,34 @@ except ImportError:
 # Register HEIF opener
 pillow_heif.register_heif_opener()
 
-# IMPORTANTE: Importación directa (sin 'src.')
+# IMPORTANT: Direct import (without 'src.')
 from .models import PhotoMetadata, GPSCoordinates
 
-# Configurar logger
+# Configure logger
 logger = logging.getLogger(__name__)
 
 class GPSPhotoExtractor:
     def extract_metadata(self, file_path: Path) -> PhotoMetadata:
         """
-        Lee una imagen y extrae sus metadatos y coordenadas GPS convertidas.
+        Reads an image and extracts its metadata and converted GPS coordinates.
         """
         try:
             image = Image.open(file_path)
 
-            # 1. Obtener datos EXIF crudos
+            # 1. Get raw EXIF data
             raw_exif = image._getexif()
 
             if not raw_exif:
                 logger.warning(f"No EXIF data found for {file_path.name}")
                 return PhotoMetadata(file_path.name, str(file_path), None, None)
 
-            # 2. Mapear etiquetas
+            # 2. Map tags
             exif_data = {
                 ExifTags.TAGS.get(k, k): v
                 for k, v in raw_exif.items()
             }
 
-            # 3. Buscar datos GPS (ID 34853)
+            # 3. Search for GPS data (ID 34853)
             gps_info = raw_exif.get(34853)
 
             timestamp = self._get_date(exif_data)
@@ -53,7 +53,7 @@ class GPSPhotoExtractor:
             if gps_info:
                 try:
                     gps_coords = self._get_lat_lon(gps_info, timestamp)
-                    # Validar coordenadas 0.0, 0.0 (error de señal GPS)
+                    # Validate 0.0, 0.0 coordinates (GPS signal error)
                     if gps_coords and gps_coords.latitude == 0.0 and gps_coords.longitude == 0.0:
                         logger.warning(f"GPS coordinates are (0.0, 0.0) for {file_path.name}. Treating as no GPS.")
                         gps_coords = None
@@ -85,8 +85,8 @@ class GPSPhotoExtractor:
         return None
 
     def _get_lat_lon(self, gps_info: Dict[int, Any], timestamp: Optional[datetime] = None) -> Optional[GPSCoordinates]:
-        # Mapeo de tags GPS usando ExifTags.GPSTAGS si fuera necesario, 
-        # pero los IDs son estándar: 1=LatRef, 2=Lat, 3=LonRef, 4=Lon, 6=Alt
+        # GPS tag mapping using ExifTags.GPSTAGS if needed,
+        # but IDs are standard: 1=LatRef, 2=Lat, 3=LonRef, 4=Lon, 6=Alt
         
         lat_dms = gps_info.get(2)
         lat_ref = gps_info.get(1)
@@ -98,7 +98,7 @@ class GPSPhotoExtractor:
             lat = self._to_decimal(lat_dms, lat_ref)
             lon = self._to_decimal(lon_dms, lon_ref)
 
-            # Solo si lat y lon son válidos
+            # Only if lat and lon are valid
             if lat is not None and lon is not None:
                 if isinstance(alt, tuple):
                     try:
@@ -106,13 +106,13 @@ class GPSPhotoExtractor:
                     except (ZeroDivisionError, IndexError, ValueError):
                         alt = 0.0
                 
-                # Asegurar que alt es float
+                # Ensure alt is float
                 try:
                     alt = float(alt)
                 except (ValueError, TypeError):
                     alt = 0.0
 
-                # --- Lógica de Azimut (Rumbo) ---
+                # --- Azimuth (Bearing) Logic ---
                 azimuth = None
                 # Tag 17: GPSImgDirection, Tag 16: GPSImgDirectionRef
                 if 17 in gps_info:
@@ -126,7 +126,7 @@ class GPSPhotoExtractor:
                         
                         azimuth = val_az
 
-                        # Corrección Magnética
+                        # Magnetic Correction
                         # Ref 'M' = Magnetic North, 'T' = True North
                         ref = gps_info.get(16, 'T')
                         if isinstance(ref, str):
@@ -134,20 +134,20 @@ class GPSPhotoExtractor:
                         
                         if ref == 'M' and geomag and timestamp:
                             try:
-                                # Calcular declinación
+                                # Calculate declination
                                 # geomag.declination(lat, lon, alt=0, date=date)
-                                # Nota: geomag/pygeomag pueden variar en firma, asumimos estilo pygeomag/wmm
-                                # Si falla, usamos el raw.
+                                # Note: geomag/pygeomag may vary in signature, assuming pygeomag/wmm style
+                                # If it fails, we use raw value.
                                 dec = geomag.declination(lat, lon, 0, timestamp.date())
                                 azimuth += dec
                                 # Normalizar a 0-360
                                 azimuth = azimuth % 360.0
-                                logger.info(f"Corregido rumbo magnético: {val_az:.2f} -> {azimuth:.2f} (Dec: {dec:.2f})")
+                                logger.info(f"Corrected magnetic bearing: {val_az:.2f} -> {azimuth:.2f} (Dec: {dec:.2f})")
                             except Exception as e:
-                                logger.warning(f"Error calculando declinación magnética: {e}")
+                                logger.warning(f"Error calculating magnetic declination: {e}")
                         
                     except Exception as e:
-                        logger.warning(f"Error procesando azimut: {e}")
+                        logger.warning(f"Error processing azimuth: {e}")
 
                 return GPSCoordinates(lat, lon, alt, azimuth)
         return None

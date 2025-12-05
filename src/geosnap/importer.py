@@ -10,10 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class ExcelImporter:
-    """Importa metadatos de fotos desde un Excel (Source of Truth).
+    """Imports photo metadata from an Excel file (Source of Truth).
 
-    Lee encabezados dinámicamente (case-insensitive) y soporta columnas con texto que
-    contenga: "Nº", "Archivo", "DESCRIPCIÓN", "Fecha", "Latitud", "Longitud", "Altitud".
+    Reads headers dynamically (case-insensitive) and supports columns with text
+    containing: "Nº", "File", "DESCRIPTION", "Date", "Latitude", "Longitude", "Altitude".
     """
 
     HEADER_KEYS = {
@@ -33,7 +33,7 @@ class ExcelImporter:
         wb = openpyxl.load_workbook(excel_path, data_only=True)
         ws = wb.active
 
-        # Mapear encabezados de la fila 1
+        # Map headers from row 1
         header_map: Dict[str, int] = {}
         for cell in ws[1]:
             if cell.value is None:
@@ -45,14 +45,14 @@ class ExcelImporter:
                 if any(v in text for v in variants):
                     header_map[key] = cell.column  # 1-based index
         
-        logger.info(f"Mapa de Encabezados detectado: {header_map}")
+        logger.info(f"Detected header map: {header_map}")
 
-        # Validaciones críticas
+        # Critical validations
         missing = [k for k in ("archivo", "latitud", "longitud") if k not in header_map]
         if missing:
             raise ValueError(
-                f"Faltan columnas críticas en el Excel: {', '.join(missing)}. "
-                "Asegúrate de incluir columnas para 'Archivo', 'Latitud' y 'Longitud'."
+                f"Missing critical columns in Excel: {', '.join(missing)}. "
+                "Make sure to include columns for 'File', 'Latitude', and 'Longitude'."
             )
 
         results: List[PhotoMetadata] = []
@@ -74,14 +74,14 @@ class ExcelImporter:
             raw_lon = _val("longitud")
 
             if raw_lat in (None, "") or raw_lon in (None, ""):
-                logger.warning(f"Fila {row_idx}: Coordenadas faltantes. Se omite.")
+                logger.warning(f"Row {row_idx}: Missing coordinates. Skipping.")
                 continue
 
             try:
                 lat = self._to_float(raw_lat)
                 lon = self._to_float(raw_lon)
             except ValueError:
-                logger.warning(f"Fila {row_idx}: Coordenadas inválidas (Lat/Lon). Se omite.")
+                logger.warning(f"Row {row_idx}: Invalid coordinates (Lat/Lon). Skipping.")
                 continue
 
             # Altitud (opcional)
@@ -95,7 +95,7 @@ class ExcelImporter:
             fecha_cell = _val("fecha")
             timestamp = self._parse_datetime(fecha_cell)
 
-            # Descripción (opcional)
+            # Description (optional)
             desc_cell = _val("descripcion")
             description = str(desc_cell).strip() if desc_cell not in (None, "") else ""
 
@@ -114,7 +114,7 @@ class ExcelImporter:
             results.append(
                 PhotoMetadata(
                     filename=filename,
-                    filepath="",  # Se resolverá más tarde a partir del índice de fotos
+                    filepath="",  # Will be resolved later from photo index
                     timestamp=timestamp,
                     coordinates=coords,
                     description=description,
@@ -131,7 +131,7 @@ class ExcelImporter:
         return float(s)
 
     def _parse_datetime(self, value):
-        # openpyxl suele retornar datetime para celdas de fecha válidas
+        # openpyxl usually returns datetime for valid date cells
         from datetime import datetime, date
         if value is None or value == "":
             return None
@@ -140,8 +140,8 @@ class ExcelImporter:
         if isinstance(value, date):
             return datetime.combine(value, datetime.min.time())
         try:
-            # Intento de parseo de string común
-            # 2024-01-31 12:34:56 o 31/01/2024 12:34:56
+            # Attempt to parse common string formats
+            # 2024-01-31 12:34:56 or 31/01/2024 12:34:56
             txt = str(value).strip()
             for fmt in ("%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S", "%Y-%m-%d", "%d/%m/%Y"):
                 try:
@@ -150,5 +150,5 @@ class ExcelImporter:
                     pass
         except Exception:
             pass
-        # Si es inválido, devolver None (se intentará llenar luego)
+        # If invalid, return None (will be filled later)
         return None
