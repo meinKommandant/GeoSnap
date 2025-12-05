@@ -81,6 +81,13 @@ exclude = [
     "tests",
 ]
 
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+ignore = ["E402"]  # Allow imports after pillow_heif registration
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"

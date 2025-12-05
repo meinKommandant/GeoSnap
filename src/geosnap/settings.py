@@ -2,8 +2,8 @@
 """Settings dialog for GeoSnap application."""
 import tkinter as tk
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
-from typing import Dict, Any, Optional, Callable
+from ttkbootstrap.constants import BOTH, X, LEFT, RIGHT, HORIZONTAL
+from typing import Any, Callable, Dict, Optional
 
 
 class SettingsDialog:

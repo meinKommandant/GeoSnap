@@ -1,11 +1,11 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
+from ttkbootstrap.constants import BOTH, X, LEFT, RIGHT, DISABLED, NORMAL, BOTTOM
 import sys
 import threading
 from pathlib import Path
-from typing import Optional, List, Callable, Any, Tuple
+from typing import Any, Tuple
 
 # Drag-and-drop support (optional)
 try:
@@ -18,7 +18,6 @@ except ImportError:
 try:
     from .main import process_photos_backend, process_excel_to_kmz_backend
     from .exceptions import (
-        GeoSnapError,
         InputFolderMissingError,
         NoImagesFoundError,
         NoGPSDataError,
@@ -348,9 +347,9 @@ class GeoPhotoApp:
         except ProcessCancelledError:
             self.root.after(0, self._show_cancelled)
         except (InputFolderMissingError, NoImagesFoundError, NoGPSDataError) as e:
-            self.root.after(0, lambda: self._show_warning(str(e)))
+            self.root.after(0, lambda err=e: self._show_warning(str(err)))
         except Exception as e:
-            self.root.after(0, lambda: self._show_error(str(e)))
+            self.root.after(0, lambda err=e: self._show_error(str(err)))
 
     def _reset_ui_state(self) -> None:
         # SIEMPRE "GO" AL FINALIZAR
@@ -489,20 +488,20 @@ class GeoPhotoApp:
 
 
 def main():
-    try:
-        import PIL, simplekml, openpyxl
-    except ImportError:
-        root_temp = tk.Tk(); root_temp.withdraw()
+    import importlib.util
+    if not all(importlib.util.find_spec(m) for m in ["PIL", "simplekml", "openpyxl"]):
+        root_temp = tk.Tk()
+        root_temp.withdraw()
         messagebox.showerror("Error", "Faltan librerías.")
         sys.exit(1)
 
     # Use TkinterDnD if available for drag-and-drop support
     if HAS_DND:
         app_window = TkinterDnD.Tk()
-        style = ttk.Style("cosmo")
+        ttk.Style("cosmo")  # Apply theme
     else:
         app_window = ttk.Window(themename="cosmo")
-    app = GeoPhotoApp(app_window)
+    GeoPhotoApp(app_window)
     app_window.mainloop()
 
 if __name__ == "__main__":

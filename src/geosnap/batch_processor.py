@@ -2,7 +2,6 @@
 """Batch processing queue for multiple folder jobs."""
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import List, Callable, Optional
 from threading import Event
 
