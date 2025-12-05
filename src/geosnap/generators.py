@@ -88,7 +88,7 @@ class KmzReportGenerator:
 
     def add_point(self, numero_orden, metadata, img_path, altitude_val):
         # Priority: Excel Sequence ID > Fallback to Loop Counter
-        display_id = metadata.sequence_id if metadata.sequence_id else f"{numero_orden} (Auto)"
+        display_id = metadata.sequence_id if metadata.sequence_id else numero_orden
         titulo_punto = f"Foto Nº {display_id}"
 
         # Arrow Logic (Azimuth)
