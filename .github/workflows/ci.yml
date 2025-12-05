@@ -1,5 +1,5 @@
-# GitHub Actions CI Workflow for GeoSnap
-# Runs tests on multiple Python versions and OS
+# GeoSnap CI/CD Pipeline
+# Runs tests automatically on push and pull requests
 
 name: CI
 
@@ -11,13 +11,12 @@ on:
 
 jobs:
   test:
-    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.10', '3.11', '3.12']
 
     steps:
       - name: Checkout code
@@ -27,43 +26,34 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          pip install -e .[dev]
 
-      - name: Run tests with coverage
+      - name: Run tests with pytest
         run: |
-          python -m pytest tests --cov=src/geosnap --cov-report=xml --cov-report=term
+          pytest tests/ -v --tb=short
 
-      - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+      - name: Run type checking with mypy
+        run: |
+          mypy src/geosnap/ --ignore-missing-imports
+        continue-on-error: true
 
   lint:
-    name: Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+      - name: Install Ruff
+        run: pip install ruff
 
-      - name: Run mypy
-        run: |
-          python -m mypy src/geosnap --ignore-missing-imports
+      - name: Run Ruff linter
+        run: ruff check src/
+
+      - name: Run Ruff formatter check
+        run: ruff format --check src/

@@ -7,6 +7,13 @@ import threading
 from pathlib import Path
 from typing import Optional, List, Callable, Any, Tuple
 
+# Drag-and-drop support (optional)
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD
+    HAS_DND = True
+except ImportError:
+    HAS_DND = False
+
 # --- IMPORTACIONES ---
 try:
     from .main import process_photos_backend, process_excel_to_kmz_backend
@@ -19,6 +26,8 @@ try:
     )
     from .config import ConfigManager
     from .constants import APP_TITLE, APP_SIZE, APP_MIN_SIZE, UIMessages
+    from .settings import SettingsDialog
+    from .batch_processor import BatchProcessor
 except ImportError as e:
     if not tk._default_root:
         root_temp = tk.Tk()
@@ -48,6 +57,10 @@ class GeoPhotoApp:
         self.output_dir_var = tk.StringVar(value=self.config.get("output_dir", ""))
         self.project_name_var = tk.StringVar(value=self.config.get("project_name", "Mi_Reporte"))
         self.progress_var = tk.DoubleVar()
+        
+        # Batch processing
+        self.batch_processor = BatchProcessor()
+        self.queue_count_var = tk.StringVar(value="Cola: 0")
 
         # --- HEADER ---
         header_frame = ttk.Frame(root, bootstyle="primary")
@@ -111,6 +124,9 @@ class GeoPhotoApp:
         self.excel_entry.grid(row=2, column=1, pady=10, padx=10, sticky="ew")
         self.excel_btn.grid(row=2, column=2, pady=10)
         
+        # Enable DnD for Excel entry
+        self._enable_dnd(self.excel_entry, self.excel_path_var)
+        
         self.excel_label.grid_remove()
         self.excel_entry.grid_remove()
         self.excel_btn.grid_remove()
@@ -165,6 +181,32 @@ class GeoPhotoApp:
             width=10
         )
         self.btn_cancel.pack(side=RIGHT)
+        
+        # Settings button
+        self.btn_settings = ttk.Button(
+            btn_frame,
+            text="⚙ Ajustes",
+            bootstyle="secondary-outline",
+            cursor="hand2",
+            command=self._open_settings,
+            width=10
+        )
+        self.btn_settings.pack(side=RIGHT, padx=(0, 10))
+        
+        # Batch queue button
+        self.btn_add_queue = ttk.Button(
+            btn_frame,
+            text="+ Cola",
+            bootstyle="info-outline",
+            cursor="hand2",
+            command=self._add_to_queue,
+            width=8
+        )
+        self.btn_add_queue.pack(side=RIGHT, padx=(0, 5))
+        
+        # Queue counter label
+        self.queue_label = ttk.Label(btn_frame, textvariable=self.queue_count_var, bootstyle="info")
+        self.queue_label.pack(side=RIGHT, padx=(0, 5))
 
         # Ajustar UI inicial
         self._toggle_mode_ui()
@@ -175,6 +217,9 @@ class GeoPhotoApp:
 
         entry = ttk.Entry(parent, textvariable=var, width=45, state="readonly")
         entry.grid(row=row, column=1, pady=10, padx=10, sticky="ew")
+        
+        # Enable drag-and-drop if available
+        self._enable_dnd(entry, var)
 
         btn = ttk.Button(
             parent,
@@ -184,6 +229,33 @@ class GeoPhotoApp:
         )
         btn.grid(row=row, column=2, pady=10)
         return label, entry, btn
+    
+    def _enable_dnd(self, widget: ttk.Entry, var: tk.StringVar) -> None:
+        """Enable drag-and-drop for folder/file selection."""
+        if not HAS_DND:
+            return
+        try:
+            widget.drop_target_register(DND_FILES)
+            widget.dnd_bind('<<Drop>>', lambda e: self._handle_drop(e, var))
+        except Exception:
+            pass  # DnD not available, silently ignore
+    
+    def _handle_drop(self, event: Any, var: tk.StringVar) -> None:
+        """Handle dropped files/folders."""
+        # Clean up the path (remove braces on Windows)
+        path = event.data.strip()
+        if path.startswith('{') and path.endswith('}'):
+            path = path[1:-1]
+        
+        # Validate it's a directory for folder vars
+        if Path(path).is_dir():
+            var.set(path)
+        elif Path(path).is_file():
+            # For files, set parent directory or file path depending on context
+            if var == self.excel_path_var:
+                var.set(path)
+            else:
+                var.set(str(Path(path).parent))
 
     def _browse_folder(self, target_var: tk.StringVar) -> None:
         initial_dir = target_var.get() if target_var.get() else str(Path.home())
@@ -203,7 +275,9 @@ class GeoPhotoApp:
 
     def _update_ui_elements(self, percentage: float, message: str) -> None:
         self.progress_var.set(percentage)
-        self.status_label.config(text=message)
+        # Show percentage with message for better feedback
+        progress_text = f"{int(percentage)}% - {message}" if percentage > 0 else message
+        self.status_label.config(text=progress_text)
 
     def start_generation_thread(self) -> None:
         input_path = self.input_dir_var.get()
@@ -308,6 +382,90 @@ class GeoPhotoApp:
         self.progress_var.set(0)
         messagebox.showerror("Error Crítico", f"{error_msg}")
 
+    def _open_settings(self) -> None:
+        """Open settings dialog."""
+        current_settings = {
+            "thumbnail_size": self.config.get("thumbnail_size", 800),
+            "jpeg_quality": self.config.get("jpeg_quality", 75),
+            "arrow_length": self.config.get("arrow_length", 30),
+            "arrow_width": self.config.get("arrow_width", 4),
+        }
+        
+        def on_save(new_settings):
+            ConfigManager.update_settings(new_settings)
+            self.config.update(new_settings)
+            self.status_label.config(text="✅ Ajustes guardados", bootstyle="success")
+        
+        SettingsDialog(self.root, current_settings, on_save)
+
+    def _add_to_queue(self) -> None:
+        """Add current config to batch queue."""
+        input_path = self.input_dir_var.get()
+        output_path = self.output_dir_var.get()
+        project_name = self.project_name_var.get()
+        include_no_gps = self.include_no_gps_var.get()
+        
+        # Validate
+        if not input_path or not output_path:
+            messagebox.showwarning("Error", "Selecciona carpetas de Entrada y Salida.")
+            return
+        if not project_name:
+            messagebox.showwarning("Error", "Escribe un nombre para el proyecto.")
+            return
+        
+        # Add to queue
+        self.batch_processor.add_job(input_path, output_path, project_name, include_no_gps)
+        count = self.batch_processor.get_pending_count()
+        self.queue_count_var.set(f"Cola: {count}")
+        self.status_label.config(text=f"✅ Añadido a cola: {project_name}", bootstyle="success")
+        
+        # Ask if user wants to process now
+        if count >= 2:
+            if messagebox.askyesno("Procesar Cola", f"Hay {count} trabajos en cola. ¿Procesar todos ahora?"):
+                self._process_batch()
+
+    def _process_batch(self) -> None:
+        """Process all jobs in the batch queue."""
+        if self.batch_processor.get_pending_count() == 0:
+            messagebox.showinfo("Info", "La cola está vacía.")
+            return
+        
+        self.stop_event.clear()
+        self.btn_generate.config(state=DISABLED, text="Procesando...")
+        self.btn_cancel.config(state=NORMAL)
+        self.btn_add_queue.config(state=DISABLED)
+        self.status_label.config(text="Procesando cola...", bootstyle="warning")
+        
+        def run_batch():
+            result = self.batch_processor.process_all(
+                progress_callback=self.update_progress_safe,
+                stop_event=self.stop_event
+            )
+            self.root.after(0, lambda: self._show_batch_result(result))
+        
+        thread = threading.Thread(target=run_batch)
+        thread.daemon = True
+        thread.start()
+
+    def _show_batch_result(self, result) -> None:
+        """Show batch processing results."""
+        self._reset_ui_state()
+        self.btn_add_queue.config(state=NORMAL)
+        self.queue_count_var.set(f"Cola: {self.batch_processor.get_pending_count()}")
+        
+        summary = f"Completados: {result.completed}/{result.total_jobs}"
+        if result.failed > 0:
+            summary += f" | Fallidos: {result.failed}"
+        if result.cancelled > 0:
+            summary += f" | Cancelados: {result.cancelled}"
+        
+        self.progress_var.set(100)
+        self.status_label.config(text=f"✅ {summary}", bootstyle="success")
+        
+        # Show details
+        details = "\n".join(result.details)
+        messagebox.showinfo("Resultado Lote", f"{summary}\n\n{details}")
+
     def _toggle_mode_ui(self) -> None:
         reverse = self.is_reverse_mode.get()
         if reverse:
@@ -338,7 +496,12 @@ def main():
         messagebox.showerror("Error", "Faltan librerías.")
         sys.exit(1)
 
-    app_window = ttk.Window(themename="cosmo")
+    # Use TkinterDnD if available for drag-and-drop support
+    if HAS_DND:
+        app_window = TkinterDnD.Tk()
+        style = ttk.Style("cosmo")
+    else:
+        app_window = ttk.Window(themename="cosmo")
     app = GeoPhotoApp(app_window)
     app_window.mainloop()
 
