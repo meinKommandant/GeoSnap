@@ -1,11 +1,19 @@
 import openpyxl
 import math
+import os
 from openpyxl.styles import Font, Border, Side
 import simplekml
 from pathlib import Path
 from PIL import Image, ImageOps
 import pillow_heif
 import shutil
+
+# python-docx imports for WordReportGenerator
+from docx import Document
+from docx.shared import Cm, Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 # Register HEIF opener
 pillow_heif.register_heif_opener()
@@ -188,3 +196,84 @@ class KmzReportGenerator:
         )
 
         return math.degrees(lat2), math.degrees(lon2)
+
+
+class WordReportGenerator:
+    """
+    Generates a Word document report with photos in a 2-column journalistic layout.
+    Uses python-docx for document generation.
+    """
+
+    def __init__(self, title="Reporte Fotográfico"):
+        self.doc = Document()
+
+        # --- Configure Section: Margins & 2 Columns ---
+        section = self.doc.sections[0]
+        section.top_margin = Cm(2)
+        section.bottom_margin = Cm(2)
+        section.left_margin = Cm(2)
+        section.right_margin = Cm(2)
+
+        # OXML trick to force 2 columns (Journalistic style)
+        sectPr = section._sectPr
+        cols = sectPr.xpath('./w:cols')[0] if sectPr.xpath('./w:cols') else OxmlElement('w:cols')
+        cols.set(qn('w:num'), '2')  # 2 Columns
+        cols.set(qn('w:space'), '720')  # Space between columns (approx 1.27cm)
+        if not sectPr.xpath('./w:cols'):
+            sectPr.append(cols)
+
+    def add_photo(self, numero_orden, metadata, img_path):
+        """
+        Adds a photo (or placeholder) and caption.
+        Word flows content automatically: Top-Left -> Bottom-Left -> Top-Right -> Bottom-Right.
+        """
+        # 1. Prepare Data
+        # Priority: Excel Sequence ID > Loop Counter
+        display_id = metadata.sequence_id if metadata.sequence_id else str(numero_orden)
+
+        # Logic for empty description -> XXXXXXXXXXXXX
+        desc_text = metadata.description.strip() if metadata.description else "XXXXXXXXXXXXX"
+
+        # Caption text: Figura X.- Description
+        caption_text = f"Figura {display_id}.- {desc_text}"
+
+        # 2. Insert Image or Placeholder
+        # Use 'keep_with_next' to prevent separating image from caption
+        p_img = self.doc.add_paragraph()
+        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_img.paragraph_format.keep_with_next = True
+
+        run_img = p_img.add_run()
+
+        if img_path and os.path.exists(img_path):
+            try:
+                # Width 7.5cm (approx half of usable width minus margins)
+                run_img.add_picture(str(img_path), width=Cm(7.5))
+            except Exception:
+                self._add_placeholder(run_img, "[ERROR FORMATO IMAGEN]")
+        else:
+            self._add_placeholder(run_img, "[IMAGEN NO ENCONTRADA]")
+
+        # 3. Insert Caption
+        p_cap = self.doc.add_paragraph(caption_text)
+        p_cap.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        p_cap.paragraph_format.space_after = Pt(12)
+
+        # Font styling
+        run_cap = p_cap.runs[0]
+        run_cap.font.size = Pt(10)
+        run_cap.font.name = "Calibri"
+
+        # Highlight missing description warning in red
+        if desc_text == "XXXXXXXXXXXXX":
+            run_cap.font.color.rgb = RGBColor(255, 0, 0)
+
+    def _add_placeholder(self, run, text):
+        """Draws visible text when image is missing."""
+        run.add_text(f"\n\n{text}\n\n")
+        run.font.bold = True
+        run.font.color.rgb = RGBColor(200, 0, 0)  # Dark Red
+        run.font.size = Pt(12)
+
+    def save(self, path):
+        self.doc.save(str(path))

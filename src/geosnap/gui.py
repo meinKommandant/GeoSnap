@@ -89,6 +89,14 @@ class GeoPhotoApp:
         )
         self.chk_no_gps.grid(row=0, column=2, sticky="e", pady=(0, 15))
 
+        # 0.c Checkbox "Generate Word Report" (only visible in Reverse Mode)
+        self.generate_word_var = tk.BooleanVar(value=False)
+        self.chk_word_report = ttk.Checkbutton(
+            main_frame, text="Generate Word Report", variable=self.generate_word_var, bootstyle="secondary"
+        )
+        self.chk_word_report.grid(row=2, column=3, sticky="w", pady=10, padx=5)
+        self.chk_word_report.grid_remove()  # Hidden by default
+
         # 1. Folder Selection
         self.input_label, self.input_entry, self.input_btn = self._crear_selector_carpeta(
             main_frame, row=1, label_text="Fotos Origen", var=self.input_dir_var
@@ -261,6 +269,7 @@ class GeoPhotoApp:
         reverse_mode = self.is_reverse_mode.get()
         include_no_gps = self.include_no_gps_var.get()
         excel_path = self.excel_path_var.get()
+        generate_word = self.generate_word_var.get()
 
         if reverse_mode:
             if not excel_path or not excel_path.lower().endswith(".xlsx"):
@@ -292,7 +301,7 @@ class GeoPhotoApp:
 
         thread = threading.Thread(
             target=self._run_backend_process,
-            args=(input_path, output_path, project_name, reverse_mode, excel_path, include_no_gps),
+            args=(input_path, output_path, project_name, reverse_mode, excel_path, include_no_gps, generate_word),
         )
         thread.daemon = True
         thread.start()
@@ -311,6 +320,7 @@ class GeoPhotoApp:
         reverse_mode: bool = False,
         excel_path: str = "",
         include_no_gps: bool = False,
+        generate_word: bool = False,
     ) -> None:
         try:
             if reverse_mode:
@@ -321,6 +331,7 @@ class GeoPhotoApp:
                     project_name,
                     progress_callback=self.update_progress_safe,
                     stop_event=self.stop_event,
+                    generate_word=generate_word,
                 )
             else:
                 resultado_msg = process_photos_backend(
@@ -459,6 +470,7 @@ class GeoPhotoApp:
             self.excel_label.grid()
             self.excel_entry.grid()
             self.excel_btn.grid()
+            self.chk_word_report.grid()  # Show Word Report checkbox
             self.input_label.config(text="Fotos Origen")
             self.mode_text_var.set(UIMessages.MODE_EXCEL)
             self.status_label.config(text=UIMessages.STATUS_EXCEL)
@@ -466,6 +478,7 @@ class GeoPhotoApp:
             self.excel_label.grid_remove()
             self.excel_entry.grid_remove()
             self.excel_btn.grid_remove()
+            self.chk_word_report.grid_remove()  # Hide Word Report checkbox
             self.input_label.config(text="Fotos Origen")
             # Texto actualizado con EXCEL
             self.mode_text_var.set(UIMessages.MODE_PHOTOS)

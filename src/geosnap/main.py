@@ -10,7 +10,7 @@ from threading import Event
 # --- IMPORTS ---
 from .extractor import GPSPhotoExtractor
 from .models import GPSCoordinates
-from .generators import ExcelReportGenerator, KmzReportGenerator
+from .generators import ExcelReportGenerator, KmzReportGenerator, WordReportGenerator
 from .importer import ExcelImporter
 from .exceptions import InputFolderMissingError, NoImagesFoundError, NoGPSDataError, ProcessCancelledError
 from .constants import IMAGE_EXTENSIONS, IMAGE_EXTENSIONS_SET
@@ -187,9 +187,11 @@ def process_excel_to_kmz_backend(
     project_name_str: str,
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
     stop_event: Optional[Event] = None,
+    generate_word: bool = False,
 ) -> str:
     """
     Generates a KMZ from an existing Excel file (Source of Truth).
+    Optionally generates a Word report if generate_word is True.
     - Uses a file index for O(1) lookups.
     - Handles duplicate output names automatically.
     """
@@ -229,6 +231,14 @@ def process_excel_to_kmz_backend(
     # 4. Inicializar generador KMZ
     kmz_gen = KmzReportGenerator(THUMBS_DIR)
 
+    # 4.b Initialize Word generator if requested
+    word_gen = None
+    docx_path_unique = None
+    if generate_word:
+        docx_target = OUTPUT_DIR / f"{base_name}.docx"
+        docx_path_unique = _get_unique_path(docx_target)
+        word_gen = WordReportGenerator()
+
     # 5. Iterar metadatos
     for i, metadata in enumerate(metadata_list):
         if stop_event and stop_event.is_set():
@@ -264,11 +274,20 @@ def process_excel_to_kmz_backend(
         numero_orden = i + 1
         kmz_gen.add_point(numero_orden, metadata, img_path, altitude_val)
 
+        # Add to Word report if enabled
+        if word_gen is not None:
+            word_gen.add_photo(numero_orden, metadata, img_path)
+
         if progress_callback:
             progress_callback(i + 1, total_items, f"Added: {metadata.filename}")
 
     # 6. Save KMZ
     kmz_gen.save(kmz_path_unique)
     kmz_gen.cleanup()
+
+    # 6.b Save Word report if enabled
+    if word_gen is not None and docx_path_unique is not None:
+        word_gen.save(docx_path_unique)
+        return f"SUCCESS! KMZ generated at: {kmz_path_unique}\nWord report generated at: {docx_path_unique}"
 
     return f"SUCCESS! KMZ generated from Excel at: {kmz_path_unique}"
