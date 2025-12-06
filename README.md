@@ -1,8 +1,10 @@
 # 📸 GeoSnap
 
+[![CI](https://github.com/meinKommandant/GeoSnap/actions/workflows/ci.yml/badge.svg)](https://github.com/meinKommandant/GeoSnap/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey.svg)
+![Version](https://img.shields.io/badge/version-2.2.0-green.svg)
 
 **GeoSnap** is a powerful desktop tool that transforms your geotagged photos into professional KMZ reports for Google Earth and detailed Excel spreadsheets.
 
@@ -14,6 +16,8 @@
 
 *   **🗺️ Portable KMZ Generation**: Creates `.kmz` files with embedded thumbnails. Share your reports easily via email without worrying about broken image links.
 *   **📊 Excel Reporting**: Automatically generates formatted Excel (`.xlsx`) reports with GPS coordinates, timestamps, and altitude data.
+*   **📄 Word Reports**: Generate professional Word (`.docx`) photo reports in reverse mode with landscape layout and 4 photos per page.
+*   **🔄 Reverse Mode**: Import data from Excel to regenerate KMZ and Word reports.
 *   **⚡ High Performance**: Multi-threaded processing ensures fast extraction of metadata from hundreds of images.
 *   **🔄 Smart Orientation**: Automatically corrects image rotation based on EXIF data.
 *   **🖥️ User-Friendly GUI**: Simple, intuitive interface for selecting folders and generating reports.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "geosnap"
-version = "2.1.0"
+version = "2.2.0"
 description = "Transform geotagged photos into KMZ reports for Google Earth and Excel spreadsheets"
 readme = "README.md"
 license = {text = "MIT"}
