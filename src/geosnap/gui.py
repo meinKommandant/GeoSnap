@@ -10,7 +10,6 @@ from typing import Any, Tuple
 # Drag-and-drop support (optional)
 try:
     from tkinterdnd2 import DND_FILES, TkinterDnD
-
     HAS_DND = True
 except ImportError:
     HAS_DND = False
@@ -71,7 +70,6 @@ class GeoPhotoApp:
 
         # 0. Mode Switch
         self.is_reverse_mode = tk.BooleanVar(value=False)
-        # Initial text updated with "+ EXCEL"
         self.mode_text_var = tk.StringVar(value=UIMessages.MODE_PHOTOS)
         self.mode_switch = ttk.Checkbutton(
             main_frame,
@@ -80,22 +78,19 @@ class GeoPhotoApp:
             variable=self.is_reverse_mode,
             command=self._toggle_mode_ui,
         )
-        self.mode_switch.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 15))
+        self.mode_switch.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 15))
 
-        # 0.b Checkbox "Incluir fotos sin GPS"
-        self.include_no_gps_var = tk.BooleanVar(value=False)
-        self.chk_no_gps = ttk.Checkbutton(
-            main_frame, text="Incluir fotos sin GPS", variable=self.include_no_gps_var, bootstyle="secondary"
-        )
-        self.chk_no_gps.grid(row=0, column=2, sticky="e", pady=(0, 15))
-
-        # 0.c Checkbox "Generate Word Report" (only visible in Reverse Mode)
+        # 0.b Opciones específicas por modo (Top Right)
+        # Checkbox "Generar informe Word" (Solo visible en modo Excel)
         self.generate_word_var = tk.BooleanVar(value=False)
         self.chk_word_report = ttk.Checkbutton(
-            main_frame, text="Generate Word Report", variable=self.generate_word_var, bootstyle="secondary"
+            main_frame, 
+            text="Generar informe Word", 
+            variable=self.generate_word_var, 
+            bootstyle="primary" # Azul para destacar
         )
-        self.chk_word_report.grid(row=2, column=3, sticky="w", pady=10, padx=5)
-        self.chk_word_report.grid_remove()  # Hidden by default
+        self.chk_word_report.grid(row=0, column=2, sticky="e", pady=(0, 15))
+        self.chk_word_report.grid_remove() # Oculto por defecto
 
         # 1. Folder Selection
         self.input_label, self.input_entry, self.input_btn = self._crear_selector_carpeta(
@@ -214,27 +209,22 @@ class GeoPhotoApp:
         return label, entry, btn
 
     def _enable_dnd(self, widget: ttk.Entry, var: tk.StringVar) -> None:
-        """Enable drag-and-drop for folder/file selection."""
         if not HAS_DND:
             return
         try:
             widget.drop_target_register(DND_FILES)
             widget.dnd_bind("<<Drop>>", lambda e: self._handle_drop(e, var))
         except Exception:
-            pass  # DnD not available, silently ignore
+            pass
 
     def _handle_drop(self, event: Any, var: tk.StringVar) -> None:
-        """Handle dropped files/folders."""
-        # Clean up the path (remove braces on Windows)
         path = event.data.strip()
         if path.startswith("{") and path.endswith("}"):
             path = path[1:-1]
 
-        # Validate it's a directory for folder vars
         if Path(path).is_dir():
             var.set(path)
         elif Path(path).is_file():
-            # For files, set parent directory or file path depending on context
             if var == self.excel_path_var:
                 var.set(path)
             else:
@@ -258,7 +248,6 @@ class GeoPhotoApp:
 
     def _update_ui_elements(self, percentage: float, message: str) -> None:
         self.progress_var.set(percentage)
-        # Show percentage with message for better feedback
         progress_text = f"{int(percentage)}% - {message}" if percentage > 0 else message
         self.status_label.config(text=progress_text)
 
@@ -267,9 +256,12 @@ class GeoPhotoApp:
         output_path = self.output_dir_var.get()
         project_name = self.project_name_var.get()
         reverse_mode = self.is_reverse_mode.get()
-        include_no_gps = self.include_no_gps_var.get()
         excel_path = self.excel_path_var.get()
+        
+        # Opciones
         generate_word = self.generate_word_var.get()
+        # NOTA: include_no_gps siempre True por defecto según petición
+        include_no_gps = True
 
         if reverse_mode:
             if not excel_path or not excel_path.lower().endswith(".xlsx"):
@@ -319,8 +311,8 @@ class GeoPhotoApp:
         project_name: str,
         reverse_mode: bool = False,
         excel_path: str = "",
-        include_no_gps: bool = False,
-        generate_word: bool = False,
+        include_no_gps: bool = True,
+        generate_word: bool = False
     ) -> None:
         try:
             if reverse_mode:
@@ -331,7 +323,7 @@ class GeoPhotoApp:
                     project_name,
                     progress_callback=self.update_progress_safe,
                     stop_event=self.stop_event,
-                    generate_word=generate_word,
+                    generate_word=generate_word
                 )
             else:
                 resultado_msg = process_photos_backend(
@@ -352,7 +344,6 @@ class GeoPhotoApp:
             self.root.after(0, lambda err=e: self._show_error(str(err)))
 
     def _reset_ui_state(self) -> None:
-        # SIEMPRE "GO" AL FINALIZAR
         self.btn_generate.config(state=NORMAL, text=UIMessages.BTN_GO)
         self.btn_cancel.config(state=DISABLED)
         self.status_label.config(bootstyle="default")
@@ -382,7 +373,6 @@ class GeoPhotoApp:
         messagebox.showerror("Error Crítico", f"{error_msg}")
 
     def _open_settings(self) -> None:
-        """Open settings dialog."""
         current_settings = {
             "thumbnail_size": self.config.get("thumbnail_size", 800),
             "jpeg_quality": self.config.get("jpeg_quality", 75),
@@ -398,13 +388,12 @@ class GeoPhotoApp:
         SettingsDialog(self.root, current_settings, on_save)
 
     def _add_to_queue(self) -> None:
-        """Add current config to batch queue."""
         input_path = self.input_dir_var.get()
         output_path = self.output_dir_var.get()
         project_name = self.project_name_var.get()
-        include_no_gps = self.include_no_gps_var.get()
+        # Siempre incluir No-GPS en la cola también
+        include_no_gps = True
 
-        # Validate
         if not input_path or not output_path:
             messagebox.showwarning("Error", "Selecciona carpetas de Entrada y Salida.")
             return
@@ -412,19 +401,16 @@ class GeoPhotoApp:
             messagebox.showwarning("Error", "Escribe un nombre para el proyecto.")
             return
 
-        # Add to queue
         self.batch_processor.add_job(input_path, output_path, project_name, include_no_gps)
         count = self.batch_processor.get_pending_count()
         self.queue_count_var.set(f"Cola: {count}")
         self.status_label.config(text=f"✅ Añadido a cola: {project_name}", bootstyle="success")
 
-        # Ask if user wants to process now
         if count >= 2:
             if messagebox.askyesno("Procesar Cola", f"Hay {count} trabajos en cola. ¿Procesar todos ahora?"):
                 self._process_batch()
 
     def _process_batch(self) -> None:
-        """Process all jobs in the batch queue."""
         if self.batch_processor.get_pending_count() == 0:
             messagebox.showinfo("Info", "La cola está vacía.")
             return
@@ -446,7 +432,6 @@ class GeoPhotoApp:
         thread.start()
 
     def _show_batch_result(self, result) -> None:
-        """Show batch processing results."""
         self._reset_ui_state()
         self.btn_add_queue.config(state=NORMAL)
         self.queue_count_var.set(f"Cola: {self.batch_processor.get_pending_count()}")
@@ -460,7 +445,6 @@ class GeoPhotoApp:
         self.progress_var.set(100)
         self.status_label.config(text=f"✅ {summary}", bootstyle="success")
 
-        # Show details
         details = "\n".join(result.details)
         messagebox.showinfo("Resultado Lote", f"{summary}\n\n{details}")
 
@@ -470,7 +454,7 @@ class GeoPhotoApp:
             self.excel_label.grid()
             self.excel_entry.grid()
             self.excel_btn.grid()
-            self.chk_word_report.grid()  # Show Word Report checkbox
+            self.chk_word_report.grid() # MOSTRAR CHECKBOX WORD
             self.input_label.config(text="Fotos Origen")
             self.mode_text_var.set(UIMessages.MODE_EXCEL)
             self.status_label.config(text=UIMessages.STATUS_EXCEL)
@@ -478,13 +462,11 @@ class GeoPhotoApp:
             self.excel_label.grid_remove()
             self.excel_entry.grid_remove()
             self.excel_btn.grid_remove()
-            self.chk_word_report.grid_remove()  # Hide Word Report checkbox
+            self.chk_word_report.grid_remove() # OCULTAR CHECKBOX WORD
             self.input_label.config(text="Fotos Origen")
-            # Texto actualizado con EXCEL
             self.mode_text_var.set(UIMessages.MODE_PHOTOS)
             self.status_label.config(text=UIMessages.STATUS_PHOTOS)
 
-        # SIEMPRE "GO"
         self.btn_generate.config(text=UIMessages.BTN_GO)
 
 
@@ -497,10 +479,9 @@ def main():
         messagebox.showerror("Error", "Faltan librerías.")
         sys.exit(1)
 
-    # Use TkinterDnD if available for drag-and-drop support
     if HAS_DND:
         app_window = TkinterDnD.Tk()
-        ttk.Style("cosmo")  # Apply theme
+        ttk.Style("cosmo")
     else:
         app_window = ttk.Window(themename="cosmo")
     GeoPhotoApp(app_window)
