@@ -57,9 +57,34 @@ class ExcelImporter:
 
         results: List[PhotoMetadata] = []
 
+        def _sanitize_cell_value(value):
+            """
+            Sanitize cell values to prevent CSV/Excel formula injection.
+            Only applies to string values that look like formulas.
+            Dangerous formulas start with: =, @, tab, carriage return.
+            Note: + and - are excluded to allow negative numbers in text form.
+            """
+            if value is None:
+                return None
+            if isinstance(value, str):
+                value_stripped = value.strip()
+                # Only escape truly dangerous formula characters (not + or - which could be numbers)
+                dangerous_prefixes = ("=", "@", "\t", "\r")
+                if value_stripped.startswith(dangerous_prefixes):
+                    logger.warning(f"Sanitized potentially dangerous cell value: {value[:20]}...")
+                    return "'" + value  # Escape with single quote
+            return value
+
         for row_idx in range(2, ws.max_row + 1):
 
             def _val(col_key: str):
+                """Get cell value with formula injection sanitization (for text fields)."""
+                col = header_map.get(col_key)
+                raw_value = ws.cell(row=row_idx, column=col).value if col else None
+                return _sanitize_cell_value(raw_value)
+
+            def _val_raw(col_key: str):
+                """Get raw cell value without sanitization (for numeric fields)."""
                 col = header_map.get(col_key)
                 return ws.cell(row=row_idx, column=col).value if col else None
 
@@ -70,9 +95,9 @@ class ExcelImporter:
             if not filename:
                 continue
 
-            # Latitud / Longitud obligatorias
-            raw_lat = _val("latitud")
-            raw_lon = _val("longitud")
+            # Latitud / Longitud obligatorias (use raw values for numeric parsing)
+            raw_lat = _val_raw("latitud")
+            raw_lon = _val_raw("longitud")
 
             if raw_lat in (None, "") or raw_lon in (None, ""):
                 logger.warning(f"Row {row_idx}: Missing coordinates. Skipping.")
@@ -85,8 +110,8 @@ class ExcelImporter:
                 logger.warning(f"Row {row_idx}: Invalid coordinates (Lat/Lon). Skipping.")
                 continue
 
-            # Altitud (opcional)
-            alt_val = _val("altitud")
+            # Altitud (opcional - use raw for numeric)
+            alt_val = _val_raw("altitud")
             try:
                 altitude = self._to_float(alt_val) if alt_val not in (None, "") else 0.0
             except ValueError:
@@ -96,16 +121,16 @@ class ExcelImporter:
             fecha_cell = _val("fecha")
             timestamp = self._parse_datetime(fecha_cell)
 
-            # Description (optional)
+            # Description (optional - sanitize this text field)
             desc_cell = _val("descripcion")
             description = str(desc_cell).strip() if desc_cell not in (None, "") else ""
 
             # Sequence ID (Nº) - Source of Truth
-            raw_num = _val("num")
+            raw_num = _val_raw("num")
             sequence_id = str(raw_num).strip() if raw_num is not None else None
 
-            # Azimut (opcional)
-            az_val = _val("azimut")
+            # Azimut (opcional - use raw for numeric)
+            az_val = _val_raw("azimut")
             try:
                 azimuth = self._to_float(az_val) if az_val not in (None, "") else None
             except ValueError:

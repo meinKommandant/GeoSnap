@@ -35,11 +35,11 @@ def obtener_metadatos(ruta):
             data = exif_data.get(tag_id)
 
             # 1. Orientación de la imagen (Rotación)
-            if tag == 'Orientation':
+            if tag == "Orientation":
                 print(f"📷 Orientación (Rotación): {data} (1=Normal)")
 
             # 2. Datos GPS
-            if tag == 'GPSInfo':
+            if tag == "GPSInfo":
                 found_gps = True
                 print("\n🌍 --- DATOS GPS ---")
 
@@ -49,8 +49,8 @@ def obtener_metadatos(ruta):
                     gps_tags[decode_name] = data[key]
 
                 # Dirección de la brújula (Azimut)
-                img_direction = gps_tags.get('GPSImgDirection')
-                img_ref = gps_tags.get('GPSImgDirectionRef')
+                img_direction = gps_tags.get("GPSImgDirection")
+                img_ref = gps_tags.get("GPSImgDirectionRef")
 
                 if img_direction:
                     print(f"🧭 Dirección de la cámara (Azimut): {img_direction} grados")
@@ -59,8 +59,8 @@ def obtener_metadatos(ruta):
                     print("⚠️ Hay coordenadas GPS, pero NO se grabó la dirección (brújula).")
 
                 # Coordenadas (Latitud/Longitud)
-                lat = gps_tags.get('GPSLatitude')
-                lon = gps_tags.get('GPSLongitude')
+                lat = gps_tags.get("GPSLatitude")
+                lon = gps_tags.get("GPSLongitude")
                 print(f"📍 Latitud (raw): {lat}")
                 print(f"📍 Longitud (raw): {lon}")
 

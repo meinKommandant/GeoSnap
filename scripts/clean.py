@@ -7,13 +7,28 @@ def limpiar_proyecto():
     # Definir la raíz del proyecto
     root = Path.cwd()
 
+    # SECURITY: Verify we are in the GeoSnap project root before deleting anything
+    required_markers = [
+        root / "src",
+        root / "geosnap_app.py",
+        root / "pyproject.toml",
+    ]
+
+    missing = [str(m) for m in required_markers if not m.exists()]
+    if missing:
+        print("❌ ERROR DE SEGURIDAD: No estás en la raíz del proyecto GeoSnap.")
+        print(f"   Directorio actual: {root}")
+        print(f"   Archivos/carpetas no encontrados: {', '.join(missing)}")
+        print("   Abortando limpieza para evitar borrar archivos incorrectos.")
+        return
+
     # 1. Directorios a eliminar completamente (Carpetas generadas por PyInstaller y Python)
     directorios_a_borrar = [
         root / "build",
         root / "dist",
         root / "__pycache__",
         root / "src" / "__pycache__",
-        root / "output" / "temp_thumbnails"
+        root / "output" / "temp_thumbnails",
     ]
 
     # 2. Patrones de archivos a borrar recursivamente
