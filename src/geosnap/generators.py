@@ -224,10 +224,10 @@ class WordReportGenerator:
 
         # Force 2 columns
         sectPr = section._sectPr
-        cols = sectPr.xpath('./w:cols')[0] if sectPr.xpath('./w:cols') else OxmlElement('w:cols')
-        cols.set(qn('w:num'), '2')
-        cols.set(qn('w:space'), '720')  # ~1.27cm
-        if not sectPr.xpath('./w:cols'):
+        cols = sectPr.xpath("./w:cols")[0] if sectPr.xpath("./w:cols") else OxmlElement("w:cols")
+        cols.set(qn("w:num"), "2")
+        cols.set(qn("w:space"), "720")  # ~1.27cm
+        if not sectPr.xpath("./w:cols"):
             sectPr.append(cols)
 
     def add_photo(self, numero_orden, metadata, img_path):
@@ -254,7 +254,7 @@ class WordReportGenerator:
 
                     # Save to memory stream for python-docx
                     img_stream = io.BytesIO()
-                    img_fixed.save(img_stream, format='JPEG', quality=85)
+                    img_fixed.save(img_stream, format="JPEG", quality=85)
                     img_stream.seek(0)
 
                     # Width 9.5 cm for landscape format (2 cols)
