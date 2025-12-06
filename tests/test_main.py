@@ -1,6 +1,7 @@
 """
 Tests for main.py backend functions.
 """
+
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
 from pathlib import Path
@@ -11,7 +12,7 @@ import tempfile
 import shutil
 
 # Add src to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 from geosnap.main import (
     process_photos_backend,
@@ -33,9 +34,7 @@ class TestProcessPhotosBackend:
         """Verify InputFolderMissingError is raised when input folder doesn't exist."""
         with pytest.raises(InputFolderMissingError):
             process_photos_backend(
-                input_path_str="C:/nonexistent/folder/12345",
-                output_path_str="C:/temp",
-                project_name_str="test"
+                input_path_str="C:/nonexistent/folder/12345", output_path_str="C:/temp", project_name_str="test"
             )
 
     def test_no_images_found_raises_error(self, tmp_path):
@@ -43,12 +42,10 @@ class TestProcessPhotosBackend:
         # Create empty directory
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
-        
+
         with pytest.raises(NoImagesFoundError):
             process_photos_backend(
-                input_path_str=str(empty_dir),
-                output_path_str=str(tmp_path / "output"),
-                project_name_str="test"
+                input_path_str=str(empty_dir), output_path_str=str(tmp_path / "output"), project_name_str="test"
             )
 
     def test_cancellation_raises_error(self, tmp_path):
@@ -56,18 +53,18 @@ class TestProcessPhotosBackend:
         # Create directory with a dummy image file
         input_dir = tmp_path / "input"
         input_dir.mkdir()
-        (input_dir / "test.jpg").write_bytes(b'\xff\xd8\xff\xe0' + b'\x00' * 100)  # Minimal JPEG header
-        
+        (input_dir / "test.jpg").write_bytes(b"\xff\xd8\xff\xe0" + b"\x00" * 100)  # Minimal JPEG header
+
         # Create stop event that is already set
         stop_event = Event()
         stop_event.set()
-        
+
         with pytest.raises(ProcessCancelledError):
             process_photos_backend(
                 input_path_str=str(input_dir),
                 output_path_str=str(tmp_path / "output"),
                 project_name_str="test",
-                stop_event=stop_event
+                stop_event=stop_event,
             )
 
 
@@ -84,7 +81,7 @@ class TestGetUniquePath:
         """If path exists, add _1 suffix."""
         target = tmp_path / "existing.kmz"
         target.touch()  # Create the file
-        
+
         result = _get_unique_path(target)
         assert result == tmp_path / "existing_1.kmz"
 
@@ -94,7 +91,7 @@ class TestGetUniquePath:
         target.touch()
         (tmp_path / "report_1.kmz").touch()
         (tmp_path / "report_2.kmz").touch()
-        
+
         result = _get_unique_path(target)
         assert result == tmp_path / "report_3.kmz"
 
@@ -109,9 +106,9 @@ class TestIndexPhotos:
         (tmp_path / "photo2.png").touch()
         (tmp_path / "IMAGE.HEIC").touch()
         (tmp_path / "notanimage.txt").touch()  # Should be excluded
-        
+
         index = _index_photos(tmp_path)
-        
+
         assert "photo1.jpg" in index
         assert "photo2.png" in index
         assert "image.heic" in index
@@ -124,9 +121,9 @@ class TestIndexPhotos:
         subdir.mkdir(parents=True)
         (subdir / "nested_photo.jpg").touch()
         (tmp_path / "root_photo.png").touch()
-        
+
         index = _index_photos(tmp_path)
-        
+
         assert "nested_photo.jpg" in index
         assert "root_photo.png" in index
         assert len(index) == 2

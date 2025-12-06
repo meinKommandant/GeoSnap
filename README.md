@@ -28,9 +28,8 @@
 
 1.  **Clone the repository:**
     ```bash
-    # Replace with your actual repository URL
-    git clone https://github.com/YOUR_USERNAME/geosnap.git
-    cd geosnap
+    git clone https://github.com/meinKommandant/GeoSnap.git
+    cd GeoSnap
     ```
 
 2.  **Create a virtual environment (Recommended):**
@@ -54,7 +53,7 @@
 
 1.  **Launch the application:**
     ```bash
-    py src/run.py
+    py geosnap_app.py
     ```
 
 2.  **Select Input Folder:** Choose the directory containing your geotagged photos (JPG, HEIC, PNG).

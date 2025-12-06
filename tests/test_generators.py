@@ -8,10 +8,11 @@ import shutil
 import math
 
 # Add src to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 from geosnap.generators import ExcelReportGenerator, KmzReportGenerator
 from geosnap.models import PhotoMetadata, GPSCoordinates
+
 
 class TestExcelReportGenerator:
     def test_create_workbook(self):
@@ -21,41 +22,41 @@ class TestExcelReportGenerator:
 
     def test_add_row(self):
         generator = ExcelReportGenerator()
-        
+
         metadata = PhotoMetadata(
             filename="test.jpg",
             filepath="/path/to/test.jpg",
             timestamp=datetime(2023, 1, 1, 12, 0, 0),
-            coordinates=GPSCoordinates(40.0, -3.0, 100.0)
+            coordinates=GPSCoordinates(40.0, -3.0, 100.0),
         )
-        
+
         generator.add_row(2, 1, metadata, 100.0)
-        
+
         # Check values in cells
-        assert generator.ws['B2'].value == 1
-        assert generator.ws['C2'].value == "test.jpg"
-        assert generator.ws['E2'].value == "2023-01-01 12:00:00"
-        assert generator.ws['F2'].value == 40.0
-        assert generator.ws['G2'].value == -3.0
-        assert generator.ws['H2'].value == 100.0
+        assert generator.ws["B2"].value == 1
+        assert generator.ws["C2"].value == "test.jpg"
+        assert generator.ws["E2"].value == "2023-01-01 12:00:00"
+        assert generator.ws["F2"].value == 40.0
+        assert generator.ws["G2"].value == -3.0
+        assert generator.ws["H2"].value == 100.0
 
     def test_add_row_no_gps_shows_empty_coords(self):
         """Test that 0,0 coordinates (no-GPS marker) show as empty strings."""
         generator = ExcelReportGenerator()
-        
+
         metadata = PhotoMetadata(
             filename="no_gps.jpg",
             filepath="/path/to/no_gps.jpg",
             timestamp=datetime(2023, 1, 1, 12, 0, 0),
-            coordinates=GPSCoordinates(0.0, 0.0, 0.0)  # No-GPS marker
+            coordinates=GPSCoordinates(0.0, 0.0, 0.0),  # No-GPS marker
         )
-        
+
         generator.add_row(2, 1, metadata, 0.0)
-        
+
         # Lat/Lon/Alt should be empty for no-GPS photos
-        assert generator.ws['F2'].value == ""
-        assert generator.ws['G2'].value == ""
-        assert generator.ws['H2'].value == ""
+        assert generator.ws["F2"].value == ""
+        assert generator.ws["G2"].value == ""
+        assert generator.ws["H2"].value == ""
 
 
 class TestKmzReportGenerator:
@@ -71,14 +72,14 @@ class TestKmzReportGenerator:
     def test_calculate_dest_point_north(self, temp_thumbs_dir):
         """Test arrow destination calculation heading north (0°)."""
         generator = KmzReportGenerator(temp_thumbs_dir)
-        
+
         # Starting at equator, heading north
         lat, lon = 0.0, 0.0
         dist_m = 1000  # 1km
         bearing = 0  # North
-        
+
         dest_lat, dest_lon = generator._calculate_dest_point(lat, lon, dist_m, bearing)
-        
+
         # Should move north (higher latitude), same longitude
         assert dest_lat > lat
         assert abs(dest_lon - lon) < 0.0001  # Longitude should be nearly unchanged
@@ -86,13 +87,13 @@ class TestKmzReportGenerator:
     def test_calculate_dest_point_east(self, temp_thumbs_dir):
         """Test arrow destination calculation heading east (90°)."""
         generator = KmzReportGenerator(temp_thumbs_dir)
-        
+
         lat, lon = 0.0, 0.0
         dist_m = 1000
         bearing = 90  # East
-        
+
         dest_lat, dest_lon = generator._calculate_dest_point(lat, lon, dist_m, bearing)
-        
+
         # Should move east (higher longitude), same latitude
         assert abs(dest_lat - lat) < 0.0001
         assert dest_lon > lon
@@ -100,13 +101,13 @@ class TestKmzReportGenerator:
     def test_calculate_dest_point_south(self, temp_thumbs_dir):
         """Test arrow destination calculation heading south (180°)."""
         generator = KmzReportGenerator(temp_thumbs_dir)
-        
+
         lat, lon = 10.0, 10.0
         dist_m = 1000
         bearing = 180  # South
-        
+
         dest_lat, dest_lon = generator._calculate_dest_point(lat, lon, dist_m, bearing)
-        
+
         # Should move south (lower latitude)
         assert dest_lat < lat
 
@@ -119,7 +120,87 @@ class TestKmzReportGenerator:
         """Test that cleanup removes the thumbnails directory."""
         generator = KmzReportGenerator(temp_thumbs_dir)
         assert temp_thumbs_dir.exists()
-        
+
         generator.cleanup()
         assert not temp_thumbs_dir.exists()
 
+
+class TestWordReportGenerator:
+    """Tests for WordReportGenerator (Word document generation)."""
+
+    def test_create_document(self):
+        """Test that WordReportGenerator creates a document."""
+        from geosnap.generators import WordReportGenerator
+
+        generator = WordReportGenerator()
+        assert generator.doc is not None
+
+    def test_landscape_orientation(self):
+        """Test that document is set to landscape orientation."""
+        from geosnap.generators import WordReportGenerator
+        from docx.enum.section import WD_ORIENT
+        from docx.shared import Cm
+
+        generator = WordReportGenerator()
+        section = generator.doc.sections[0]
+
+        assert section.orientation == WD_ORIENT.LANDSCAPE
+        # Use approximate comparison due to floating-point precision
+        assert abs(section.page_width - Cm(29.7)) < 1000  # Within 1000 EMUs (~0.01cm)
+        assert abs(section.page_height - Cm(21.0)) < 1000
+
+    def test_add_photo_with_missing_image(self, tmp_path):
+        """Test that missing image shows placeholder text."""
+        from geosnap.generators import WordReportGenerator
+        from geosnap.models import PhotoMetadata, GPSCoordinates
+
+        generator = WordReportGenerator()
+
+        metadata = PhotoMetadata(
+            filename="missing.jpg",
+            filepath="/nonexistent/missing.jpg",
+            timestamp=datetime(2023, 1, 1, 12, 0, 0),
+            coordinates=GPSCoordinates(40.0, -3.0, 100.0),
+        )
+        metadata.sequence_id = "1"
+        metadata.description = "Test description"
+
+        # Should not raise even with missing image
+        generator.add_photo(1, metadata, "/nonexistent/missing.jpg")
+
+        # Document should have paragraphs
+        assert len(generator.doc.paragraphs) > 0
+
+    def test_add_photo_missing_description_shows_placeholder(self):
+        """Test that missing description shows XXXXXXXXXXXXX placeholder."""
+        from geosnap.generators import WordReportGenerator
+        from geosnap.models import PhotoMetadata, GPSCoordinates
+
+        generator = WordReportGenerator()
+
+        metadata = PhotoMetadata(
+            filename="test.jpg",
+            filepath="/path/test.jpg",
+            timestamp=datetime(2023, 1, 1, 12, 0, 0),
+            coordinates=GPSCoordinates(40.0, -3.0, 100.0),
+        )
+        metadata.sequence_id = "1"
+        metadata.description = None  # Missing description
+
+        generator.add_photo(1, metadata, None)
+
+        # Check that placeholder text is in document
+        full_text = "\n".join([p.text for p in generator.doc.paragraphs])
+        assert "XXXXXXXXXXXXX" in full_text
+
+    def test_save_creates_file(self, tmp_path):
+        """Test that save creates a .docx file."""
+        from geosnap.generators import WordReportGenerator
+
+        generator = WordReportGenerator()
+        output_path = tmp_path / "test_output.docx"
+
+        generator.save(output_path)
+
+        assert output_path.exists()
+        assert output_path.stat().st_size > 0
