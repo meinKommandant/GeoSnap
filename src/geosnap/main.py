@@ -216,6 +216,19 @@ def process_excel_to_kmz_backend(
     if total_items == 0:
         raise NoGPSDataError(0, str(EXCEL_PATH))
 
+    # 1.b Sort by sequence_id (Nº column) to respect user-defined order
+    def _sort_key(m):
+        """Extract numeric value from sequence_id for proper sorting."""
+        if m.sequence_id is None:
+            return float("inf")  # Items without number go to the end
+        try:
+            return int(m.sequence_id)
+        except ValueError:
+            return float("inf")
+
+    metadata_list.sort(key=_sort_key)
+    logger.info(f"Sorted {total_items} items by sequence_id (Nº)")
+
     # 2. Generate photo index
     if progress_callback:
         progress_callback(0, total_items, "Indexing photos...")
