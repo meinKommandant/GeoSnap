@@ -1,6 +1,7 @@
 import openpyxl
 import math
 import os
+import io
 from openpyxl.styles import Font, Border, Side
 import simplekml
 from pathlib import Path
@@ -203,7 +204,7 @@ class WordReportGenerator:
     """
     Generates a Word document report with photos in a 2-column journalistic layout.
     Landscape orientation with 4 photos per page (2 per column).
-    Uses python-docx for document generation.
+    Includes EXIF rotation fix and centered/bold captions.
     """
 
     def __init__(self, title="Reporte Fotográfico"):
@@ -211,40 +212,35 @@ class WordReportGenerator:
 
         # --- Configure Section: Landscape and 2 Columns ---
         section = self.doc.sections[0]
-        # Set orientation to Landscape
         section.orientation = WD_ORIENT.LANDSCAPE
-        # Swap A4 dimensions (Width 29.7cm, Height 21.0cm)
         section.page_width = Cm(29.7)
         section.page_height = Cm(21.0)
 
-        # Adjusted margins to ensure 2 rows fit (4 photos/page)
-        section.top_margin = Cm(1.5)     # Reduced for more height
-        section.bottom_margin = Cm(1.5)  # Reduced for more height
+        # Margins (1.5 cm to maximize vertical space)
+        section.top_margin = Cm(1.5)
+        section.bottom_margin = Cm(1.5)
         section.left_margin = Cm(2)
         section.right_margin = Cm(2)
 
-        # OXML trick to force 2 columns (Journalistic style)
+        # Force 2 columns
         sectPr = section._sectPr
         cols = sectPr.xpath('./w:cols')[0] if sectPr.xpath('./w:cols') else OxmlElement('w:cols')
-        cols.set(qn('w:num'), '2')  # 2 Columns
-        cols.set(qn('w:space'), '720')  # Space between columns (~1.27cm)
+        cols.set(qn('w:num'), '2')
+        cols.set(qn('w:space'), '720')  # ~1.27cm
         if not sectPr.xpath('./w:cols'):
             sectPr.append(cols)
 
     def add_photo(self, numero_orden, metadata, img_path):
         """
-        Adds photo and caption. In Landscape with 9.5cm width, 2 should fit per column.
+        Adds photo (with EXIF rotation fix) and centered/black caption.
         """
         display_id = metadata.sequence_id if metadata.sequence_id else str(numero_orden)
         desc_text = metadata.description.strip() if metadata.description else "XXXXXXXXXXXXX"
-        caption_text = f"Figura {display_id}.- {desc_text}"
 
-        # 1. Insert Image
+        # 1. Insert Image (with EXIF orientation fix)
         p_img = self.doc.add_paragraph()
         p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_img.paragraph_format.keep_with_next = True
-
-        # Reduce paragraph spacing to compact layout
         p_img.paragraph_format.space_before = Pt(2)
         p_img.paragraph_format.space_after = Pt(2)
 
@@ -252,26 +248,44 @@ class WordReportGenerator:
 
         if img_path and os.path.exists(img_path):
             try:
-                # Width increased to 9.5 cm (taking advantage of landscape format)
-                # This typically gives ~7.1cm height (4:3), allowing 2 photos in 18cm usable height
-                run_img.add_picture(str(img_path), width=Cm(9.5))
-            except Exception:
-                self._add_placeholder(run_img, "[ERROR FORMATO IMAGEN]")
+                # Process image with Pillow to rotate according to EXIF
+                with Image.open(img_path) as img:
+                    img_fixed = ImageOps.exif_transpose(img)
+
+                    # Save to memory stream for python-docx
+                    img_stream = io.BytesIO()
+                    img_fixed.save(img_stream, format='JPEG', quality=85)
+                    img_stream.seek(0)
+
+                    # Width 9.5 cm for landscape format (2 cols)
+                    run_img.add_picture(img_stream, width=Cm(9.5))
+            except Exception as e:
+                self._add_placeholder(run_img, f"[ERROR IMAGEN: {str(e)}]")
         else:
             self._add_placeholder(run_img, "[IMAGEN NO ENCONTRADA]")
 
-        # 2. Insert Caption
-        p_cap = self.doc.add_paragraph(caption_text)
-        p_cap.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        # Space after block to separate from next photo
+        # 2. Insert Caption (Centered and Black)
+        p_cap = self.doc.add_paragraph()
+        p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p_cap.paragraph_format.space_after = Pt(10)
 
-        run_cap = p_cap.runs[0]
-        run_cap.font.size = Pt(10)
-        run_cap.font.name = "Calibri"
+        # Part 1: "Figura X.- " in Bold
+        run_bold = p_cap.add_run(f"Figura {display_id}.- ")
+        run_bold.font.name = "Calibri"
+        run_bold.font.size = Pt(10)
+        run_bold.font.bold = True
+        run_bold.font.color.rgb = RGBColor(0, 0, 0)  # Black
 
+        # Part 2: Description normal
+        run_desc = p_cap.add_run(desc_text)
+        run_desc.font.name = "Calibri"
+        run_desc.font.size = Pt(10)
+        run_desc.font.bold = False
+        run_desc.font.color.rgb = RGBColor(0, 0, 0)  # Black
+
+        # Red warning only for placeholder text
         if desc_text == "XXXXXXXXXXXXX":
-            run_cap.font.color.rgb = RGBColor(255, 0, 0)
+            run_desc.font.color.rgb = RGBColor(255, 0, 0)
 
     def _add_placeholder(self, run, text):
         """Draws visible text when image is missing."""
