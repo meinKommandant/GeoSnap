@@ -1,19 +1,17 @@
 # src/main.py
+"""Main backend module for GeoSnap photo processing."""
+
 import logging
-from PIL import UnidentifiedImageError
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 from threading import Event
 
 # --- IMPORTS ---
-from .extractor import GPSPhotoExtractor
-from .models import GPSCoordinates
 from .generators import ExcelReportGenerator, KmzReportGenerator, WordReportGenerator
 from .importer import ExcelImporter
-from .exceptions import InputFolderMissingError, NoImagesFoundError, NoGPSDataError, ProcessCancelledError
-from .constants import IMAGE_EXTENSIONS, IMAGE_EXTENSIONS_SET
+from .exceptions import InputFolderMissingError, NoGPSDataError, ProcessCancelledError
+from .constants import IMAGE_EXTENSIONS_SET
 
 # Configure logger
 log_dir = Path.home() / ".geosnap_logs"
@@ -41,86 +39,64 @@ def process_photos_backend(
 ) -> str:
     """
     Robust backend that raises controlled exceptions on error.
+
+    Uses PhotoProcessor for scanning and metadata extraction, then generates
+    Excel and KMZ reports from the processed photos.
+
+    Args:
+        input_path_str: Path to directory containing photos.
+        output_path_str: Path to output directory for reports.
+        project_name_str: Base name for generated report files.
+        progress_callback: Optional callback for progress updates.
+        stop_event: Optional threading event for cancellation.
+        include_no_gps: Include photos without GPS data (with dummy coords).
+
+    Returns:
+        Success message with processing summary.
+
+    Raises:
+        InputFolderMissingError: If input folder doesn't exist.
+        NoImagesFoundError: If no supported images are found.
+        NoGPSDataError: If no photos have GPS data (and include_no_gps=False).
+        ProcessCancelledError: If processing is cancelled via stop_event.
     """
+    from .processor import PhotoProcessor
+
     logger.info("Starting backend process")
 
-    # 1. Validar rutas
+    # 1. Validate paths
     INPUT_DIR = Path(input_path_str)
     OUTPUT_DIR = Path(output_path_str)
     THUMBS_DIR = OUTPUT_DIR / "temp_thumbnails"
 
     if not INPUT_DIR.exists():
-        # Raise exception instead of returning string
         raise InputFolderMissingError(INPUT_DIR)
 
     # Base name
     base_name = project_name_str.strip() or "reporte_completo"
     base_name = base_name.replace(".kmz", "").replace(".xlsx", "")
-    # 3. GET IMAGES
-    # Supported extensions definition (includes HEIC/HEIF)
-    extensions = IMAGE_EXTENSIONS
-    # File search
-    raw_files = []
-    for ext in extensions:
-        raw_files.extend(INPUT_DIR.glob(ext))
-    image_files = sorted(list(set(raw_files)))
-    total_files = len(image_files)
 
-    if total_files == 0:
-        # Raise specific exception
-        raise NoImagesFoundError(INPUT_DIR)
+    # 2. Process photos using PhotoProcessor
+    processor = PhotoProcessor(
+        input_dir=INPUT_DIR,
+        include_no_gps=include_no_gps,
+        progress_callback=progress_callback,
+        stop_event=stop_event,
+    )
 
-    logger.info(f"Found {total_files} images to process")
-
-    processed_count = 0
-    valid_photos = []
-
-    # 2. INITIALIZE ENGINES
-    extractor = GPSPhotoExtractor()
-    excel_gen = ExcelReportGenerator()
-    kmz_gen = KmzReportGenerator(THUMBS_DIR)
-
-    # 4. PARALLEL PROCESSING
-    with ThreadPoolExecutor() as executor:
-        future_to_index = {
-            executor.submit(extractor.extract_metadata, img_path): i for i, img_path in enumerate(image_files)
-        }
-
-        for i, future in enumerate(as_completed(future_to_index)):
-            # Cancellation check with exception
-            if stop_event and stop_event.is_set():
-                logger.info("Cancellation detected during extraction phase")
-                raise ProcessCancelledError()
-
-            index = future_to_index[future]
-            img_path = image_files[index]
-
-            try:
-                metadata = future.result()
-                if metadata.has_gps:
-                    valid_photos.append((index, metadata, img_path))
-                elif include_no_gps:
-                    # Create dummy coordinates if none exist
-                    if metadata.coordinates is None:
-                        metadata.coordinates = GPSCoordinates(0.0, 0.0, 0.0)
-                    valid_photos.append((index, metadata, img_path))
-            except UnidentifiedImageError:
-                logger.error(f"Error: La imagen {img_path.name} está corrupta o no es válida.")
-            except Exception as e:
-                logger.error(f"Error procesando {img_path.name}: {e}")
-
-            if progress_callback:
-                progress_callback(i + 1, total_files, f"Analyzing: {img_path.name}")
-
-    valid_photos.sort(key=lambda x: x[0])
-
-    # 5. REPORT GENERATION
+    valid_photos = processor.process()
     total_valid = len(valid_photos)
 
     # Validate we have useful photos BEFORE generating empty reports
     if total_valid == 0:
-        raise NoGPSDataError(total_files, str(INPUT_DIR))
+        total_scanned = processor.get_total_files()
+        raise NoGPSDataError(total_scanned, str(INPUT_DIR))
 
+    # 3. Initialize report generators
+    excel_gen = ExcelReportGenerator()
+    kmz_gen = KmzReportGenerator(THUMBS_DIR)
+
+    # 4. Generate reports
     for i, (_, metadata, img_path) in enumerate(valid_photos):
         if stop_event and stop_event.is_set():
             raise ProcessCancelledError()
@@ -134,12 +110,10 @@ def process_photos_backend(
         excel_gen.add_row(i + 2, numero_orden, metadata, val_alt)
         kmz_gen.add_point(numero_orden, metadata, img_path, val_alt)
 
-    processed_count = total_valid
-
     if progress_callback:
-        progress_callback(total_files, total_files, "Saving files...")
+        progress_callback(total_valid, total_valid, "Saving files...")
 
-    # 6. SAVE
+    # 5. Save reports
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     kmz_path = OUTPUT_DIR / f"{base_name}.kmz"
     xlsx_path = OUTPUT_DIR / f"{base_name}.xlsx"
@@ -148,10 +122,8 @@ def process_photos_backend(
     excel_gen.save(xlsx_path)
     kmz_gen.cleanup()
 
-    logger.info(f"Process completed. {processed_count} photos processed.")
-    # Success return is still a string or could be a Result object,
-    # but since it's the "happy path", returning the final message is fine.
-    return f"SUCCESS!\nProcessed: {processed_count} photos.\nGenerated:\n- {kmz_path.name}\n- {xlsx_path.name}"
+    logger.info(f"Process completed. {total_valid} photos processed.")
+    return f"SUCCESS!\nProcessed: {total_valid} photos.\nGenerated:\n- {kmz_path.name}\n- {xlsx_path.name}"
 
 
 # --- Helpers and backend: Phase 1 - Reverse Mode Backend ---
@@ -178,6 +150,45 @@ def _index_photos(base_dir: Path) -> dict:
         if p.is_file() and p.suffix in exts:
             index[p.name.lower()] = p
     return index
+
+
+def check_missing_files(excel_path: str, photos_dir: str) -> List[str]:
+    """Check which files referenced in Excel are missing from the photos directory.
+
+    This is a pre-flight check for Reverse Mode that allows users to identify
+    missing files before running the full generation process.
+
+    Args:
+        excel_path: Path to the Excel file containing photo metadata.
+        photos_dir: Path to the directory containing source photos.
+
+    Returns:
+        List of filenames from Excel that don't exist in the photos directory.
+        Empty list if all files are present.
+
+    Raises:
+        ValueError: If Excel is missing critical columns.
+        FileNotFoundError: If Excel file doesn't exist.
+    """
+    excel_path_obj = Path(excel_path)
+    photos_dir_obj = Path(photos_dir)
+
+    # Parse Excel to get list of referenced filenames
+    importer = ExcelImporter()
+    metadata_list = importer.parse_excel(excel_path_obj)
+
+    # Build index of existing photos
+    photo_index = _index_photos(photos_dir_obj)
+
+    # Find missing files
+    missing_files: List[str] = []
+    for metadata in metadata_list:
+        filename_key = metadata.filename.strip().lower()
+        if filename_key not in photo_index:
+            missing_files.append(metadata.filename)
+
+    logger.info(f"Pre-flight check: {len(missing_files)} missing files out of {len(metadata_list)}")
+    return missing_files
 
 
 def process_excel_to_kmz_backend(
@@ -266,7 +277,21 @@ def process_excel_to_kmz_backend(
                 progress_callback(i + 1, total_items, f"Not found: {metadata.filename}")
             continue
 
-        # Resolver filepath en el objeto metadata
+        # Security: Validate path is inside photos directory (prevent path traversal)
+        try:
+            if not img_path.resolve().is_relative_to(PHOTOS_DIR.resolve()):
+                logger.warning(
+                    f"Security: Skipping {metadata.filename} - path escapes base directory"
+                )
+                continue
+        except ValueError:
+            # is_relative_to raises ValueError if paths are on different drives
+            logger.warning(
+                f"Security: Skipping {metadata.filename} - path on different drive"
+            )
+            continue
+
+        # Resolve filepath in the metadata object
         metadata.filepath = str(img_path)
 
         # If no date, try from file system

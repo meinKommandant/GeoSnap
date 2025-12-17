@@ -17,7 +17,7 @@ except ImportError:
 
 # --- IMPORTS ---
 try:
-    from .main import process_photos_backend, process_excel_to_kmz_backend
+    from .main import process_photos_backend, process_excel_to_kmz_backend, check_missing_files
     from .exceptions import InputFolderMissingError, NoImagesFoundError, NoGPSDataError, ProcessCancelledError
     from .config import ConfigManager
     from .constants import APP_TITLE, APP_SIZE, APP_MIN_SIZE, UIMessages
@@ -168,6 +168,18 @@ class GeoPhotoApp:
             width=10,
         )
         self.btn_cancel.pack(side=RIGHT)
+
+        # Verify Files button (Reverse Mode only)
+        self.btn_verify_files = ttk.Button(
+            btn_frame,
+            text="Verificar Archivos",
+            bootstyle="warning-outline",
+            cursor="hand2",
+            command=self._verify_files,
+            width=15,
+        )
+        self.btn_verify_files.pack(side=LEFT, padx=(0, 10))
+        self.btn_verify_files.pack_forget()  # Hidden by default
 
         # Settings button
         self.btn_settings = ttk.Button(
@@ -388,6 +400,48 @@ class GeoPhotoApp:
 
         SettingsDialog(self.root, current_settings, on_save)
 
+    def _verify_files(self) -> None:
+        """Pre-flight check to verify files exist before generating."""
+        excel_path = self.excel_path_var.get()
+        photos_dir = self.input_dir_var.get()
+
+        # Validate inputs
+        if not excel_path or not excel_path.lower().endswith(".xlsx"):
+            messagebox.showwarning("Error", "Selecciona un Excel válido (.xlsx).")
+            return
+        if not Path(excel_path).exists():
+            messagebox.showwarning("Error", "El archivo Excel no existe.")
+            return
+        if not photos_dir:
+            messagebox.showwarning("Error", "Selecciona la carpeta de Fotos Origen.")
+            return
+
+        try:
+            missing_files = check_missing_files(excel_path, photos_dir)
+
+            if not missing_files:
+                messagebox.showinfo(
+                    "Verificación Completa",
+                    "✅ Todos los archivos del Excel existen en la carpeta de origen."
+                )
+            else:
+                total_missing = len(missing_files)
+                # Show first 10 missing files
+                display_list = missing_files[:10]
+                files_text = "\n".join(f"• {f}" for f in display_list)
+
+                if total_missing > 10:
+                    files_text += f"\n... y {total_missing - 10} más"
+
+                messagebox.showwarning(
+                    "Archivos Faltantes",
+                    f"⚠️ {total_missing} archivo(s) no encontrado(s):\n\n{files_text}"
+                )
+        except ValueError as e:
+            messagebox.showerror("Error de Excel", str(e))
+        except Exception as e:
+            messagebox.showerror("Error", f"Error verificando archivos: {e}")
+
     def _add_to_queue(self) -> None:
         input_path = self.input_dir_var.get()
         output_path = self.output_dir_var.get()
@@ -456,6 +510,7 @@ class GeoPhotoApp:
             self.excel_entry.grid()
             self.excel_btn.grid()
             self.chk_word_report.grid()  # MOSTRAR CHECKBOX WORD
+            self.btn_verify_files.pack(side=LEFT, padx=(0, 10))  # Show verify button
             self.input_label.config(text="Fotos Origen")
             self.mode_text_var.set(UIMessages.MODE_EXCEL)
             self.status_label.config(text=UIMessages.STATUS_EXCEL)
@@ -464,6 +519,7 @@ class GeoPhotoApp:
             self.excel_entry.grid_remove()
             self.excel_btn.grid_remove()
             self.chk_word_report.grid_remove()  # OCULTAR CHECKBOX WORD
+            self.btn_verify_files.pack_forget()  # Hide verify button
             self.input_label.config(text="Fotos Origen")
             self.mode_text_var.set(UIMessages.MODE_PHOTOS)
             self.status_label.config(text=UIMessages.STATUS_PHOTOS)
