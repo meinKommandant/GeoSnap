@@ -60,24 +60,24 @@ hiddenimports += [
     'PIL.JpegImagePlugin',
     'PIL.PngImagePlugin',
     'PIL.HeifImagePlugin',
-    
+
     # Tkinter components
     'tkinter',
     'tkinter.ttk',
     'tkinter.filedialog',
     'tkinter.messagebox',
-    
+
     # openpyxl internals
     'openpyxl.cell._writer',
     'openpyxl.workbook.child',
-    
+
     # simplekml internals
     'simplekml',
     'simplekml.kml',
     'simplekml.featgeom',
     'simplekml.coordinates',
     'simplekml.base',
-    
+
     # Standard library that might be missed
     'json',
     'logging',
@@ -103,7 +103,7 @@ a = Analysis(
     excludes=[
         # Exclude unused large libraries to reduce size
         'matplotlib',
-        'numpy', 
+        'numpy',
         'scipy',
         'pandas',
         'IPython',
@@ -125,7 +125,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
